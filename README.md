@@ -207,6 +207,12 @@ AccessManager.register_plugins({
 })
 ```
 
+### Default plugin
+
+When no any plugin is found for the model, the default plugin is used instead. The static method `AccessManager.get_default_plugin` returns a just constructed default plugin instance. The constructor takes no parameters.
+
+The `ACCESS_DEFAULT_PLUGIN` settings value determines a ***string*** referring default plugin class appropriate to import using import_module standard python function.
+
 ### Plugin interface
 
 Every plugin provides a set of methods controlling access to the model class as a whole, as well as to separate instances of the model. The *Django-Access* package controls, which methods are defined by the plugin instance and use it to check whether the particular user can have access to the particular instance by the particular way.
