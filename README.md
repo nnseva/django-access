@@ -140,7 +140,7 @@ Use lightweight *AccessManager* object instances to control access to the partic
 
 For example:
 
-```
+```python
 ...
 from access.managers import AccessManager
 ...
@@ -169,7 +169,7 @@ from access.managers import AccessManager
 
 Don't forget to check return value of the `check_` method against False value explicitly:
 
-```
+```python
         if not manager.check_visible(self.model, request): # BAD
         if manager.check_visible(self.model, request) == False: # GOOD
 ```
@@ -264,7 +264,7 @@ The programmer can use any other access type in the same manner as a base ones.
 The *CompoundPlugin* can be used to combine access rules determined by several plugins using `and` logic. Model or instance is accessible for the user *only* if all plugins allow such an access. Just pass plugin instances into *CompoundPlugin* instance constructor.
 
 For example:
-```
+```python
 AccessManager.register_plugins({
     User:CompoundPlugin(
         DjangoAccessPlugin(),
@@ -286,7 +286,7 @@ If any of combined plugins `check_` method returns False, the correspondent *Com
 
 These plugins use keyword parameters of the constructor, correspondent to access types to take a callable determining the result of the correspondent access rule method. The *CheckAblePlugin* describes model-wide access rules, while *ApplyAblePlugin* determines instance-level access rules.
 
-```
+```python
     Group:CompoundPlugin(
         DjangoAccessPlugin(),
         CheckAblePlugin(
@@ -306,7 +306,7 @@ This plugin simplifies checking for model-wide rules as in the *CheckAblePlugin*
 
 For example:
 
-```
+```python
         SimpleCheckPlugin(
             appendable=lambda model, request: model._meta.app_label == "custom"
         )
@@ -320,7 +320,7 @@ The `ACCESS_STRONG_DELETION_CONTROL` settings variable (default is False) contro
 
 For example:
 
-```
+```python
     Group:CompoundPlugin(
         DjangoAccessPlugin(),
         CheckAblePlugin(
