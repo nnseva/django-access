@@ -333,3 +333,11 @@ For example:
         ),
     )
 ```
+
+## Compatibility issues
+
+The package has been developed and tested against Django v.1.10. Newer versions are coming.
+
+## Examples
+
+Just look into the *example* folder.
