@@ -38,7 +38,7 @@ For the backward compatibility purposes, if no any rules are customized, the mod
 
 ### Creating your own admin classes
 
-If you are creating a new project, you can use every of *AccessModelAdmin*, *AccessTabularInline*, and *AccessStackedInline* exactly as you was using *ModelAdmin*, *TabularInline*, and *StackedInline* standard Django model admins. For example:
+If you are creating a new project, you can use any of *AccessModelAdmin*, *AccessTabularInline*, and *AccessStackedInline* exactly as you was using *ModelAdmin*, *TabularInline*, and *StackedInline* standard Django model admins. For example:
 
 ```python
 from django.contrib import admin
