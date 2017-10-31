@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/nnseva/django-access.svg?branch=master)](https://travis-ci.org/nnseva/django-access)
+
 # Django-Access
 
 ## Introduction
