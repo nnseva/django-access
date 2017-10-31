@@ -1,9 +1,10 @@
-from django.contrib.admin import TabularInline,StackedInline,ModelAdmin
+from django.contrib.admin import TabularInline, StackedInline, ModelAdmin
 from django.contrib.admin.options import csrf_protect_m
 
 from django.contrib.admin.utils import get_fields_from_path
 from django.contrib.admin.utils import model_ngettext, NestedObjects, quote
 from django.contrib.admin import helpers
+from django.contrib.admin.views.main import ChangeList
 
 from django.contrib import messages
 
@@ -21,55 +22,58 @@ from django.utils.safestring import mark_safe
 
 from django.forms.formsets import DELETION_FIELD_NAME
 
-from django.db import router, transaction
-from django.db.models import Model, Manager
+from django.db import transaction
 from django.db.models.fields.related import ForeignObjectRel
 
 from django.core.exceptions import (
-    FieldDoesNotExist, FieldError, PermissionDenied, ValidationError,
+    PermissionDenied, ValidationError,
 )
 
 from django.conf import settings
+from django.utils.six import text_type, string_types
 
 from access.managers import AccessManager
 
 import collections
 
+
 class RelatedFieldVisibleListFilter(RelatedFieldListFilter):
     def lookups(self, request, model_admin):
-      if not hasattr(self.field, 'rel'):
-        for l in super(RelatedFieldVisibleListFilter,self).lookups(request, model_admin):
-            yield l
-      else:
-        for o in AccessManager(self.field.rel.to).visible(request).distinct():
-            yield (o.pk,unicode(o))
+        if not hasattr(self.field, 'rel'):
+            for l in super(RelatedFieldVisibleListFilter, self).lookups(request, model_admin):
+                yield l
+        else:
+            for o in AccessManager(self.field.rel.to).visible(request).distinct():
+                yield (o.pk, text_type(o))
 
 
 class RelatedFieldPresentListFilter(RelatedFieldListFilter):
     def lookups(self, request, model_admin):
-      if not hasattr(self.field, 'rel'):
-        for l in super(RelatedFieldPresentListFilter,self).lookups(request, model_admin):
-            yield l
-      else:
-        q = self.field.rel.to.objects.filter(
-            pk__in=cl.get_queryset(self.request).values(self.field_path)
-        ).distinct()
-        for o in q:
-            yield (o.pk,unicode(o))
+        if not hasattr(self.field, 'rel'):
+            for l in super(RelatedFieldPresentListFilter, self).lookups(request, model_admin):
+                yield l
+        else:
+            q = self.field.rel.to.objects.filter(
+                pk__in=model_admin.get_queryset(self.request).values(self.field_path)
+            ).distinct()
+            for o in q:
+                yield (o.pk, text_type(o))
 
 
-from django.contrib.admin.views.main import ChangeList
 class NoListEditableChangeList(ChangeList):
-    def __init__(self, request, model, list_display,
-                list_display_links, list_filter, date_hierarchy,
-                search_fields, list_select_related, list_per_page,
-                list_max_show_all, list_editable, admin
-            ):
-        super(NoListEditableChangeList,self).__init__(request, model, list_display,
-                list_display_links, list_filter, date_hierarchy,
-                search_fields, list_select_related, list_per_page,
-                list_max_show_all, None, admin
+    def __init__(self,
+        request, model, list_display,
+        list_display_links, list_filter, date_hierarchy,
+        search_fields, list_select_related, list_per_page,
+        list_max_show_all, list_editable, admin
+    ):
+        super(NoListEditableChangeList, self).__init__(
+            request, model, list_display,
+            list_display_links, list_filter, date_hierarchy,
+            search_fields, list_select_related, list_per_page,
+            list_max_show_all, None, admin
         )
+
 
 class AccessControlMixin(object):
     """
@@ -95,10 +99,10 @@ class AccessControlMixin(object):
         - save_related - controls rights
     """
 
-    def get_filter_for_field(self,f, request):
+    def get_filter_for_field(self, f, request):
         field = get_fields_from_path(self.model, f)[-1]
-        if hasattr(field,'rel') and hasattr(field.rel,'to'):
-            present_list_filter_fields = getattr(self,'present_list_filter_fields',[])
+        if hasattr(field, 'rel') and hasattr(field.rel, 'to'):
+            present_list_filter_fields = getattr(self, 'present_list_filter_fields', [])
             if f in present_list_filter_fields:
                 return RelatedFieldPresentListFilter
             return RelatedFieldVisibleListFilter
@@ -107,17 +111,17 @@ class AccessControlMixin(object):
         if self.list_filter:
             filters = []
             for f in self.list_filter:
-                if not isinstance(f,(str,unicode)): # ignore custom list filters
+                if not isinstance(f, string_types):  # ignore custom list filters
                     filters.append(f)
                     continue
-                filter = self.get_filter_for_field(f,request)
+                filter = self.get_filter_for_field(f, request)
                 if filter:
-                    filters.append( (f,filter) )
+                    filters.append((f, filter))
                 else:
-                    filters.append( f )
+                    filters.append(f)
             return filters
 
-    def get_queryset(self,request):
+    def get_queryset(self, request):
         return AccessManager(self.model).visible(request)
 
     def get_field_queryset(self, db, db_field, request):
@@ -126,7 +130,7 @@ class AccessControlMixin(object):
         manager = AccessManager(db_field.rel.to)
         if qs is None:
             return manager.visible(request)
-        if manager.check_visible(qs.model, request) == False:
+        if manager.check_visible(qs.model, request) is False:
             return qs.none()
         return manager.apply_visible(qs, request)
 
@@ -135,7 +139,7 @@ class AccessControlMixin(object):
         Not all Admin subclasses use get_field_queryset here, so we will use it explicitly
         '''
         db = kwargs.get('using')
-        kwargs['queryset'] = kwargs.get('queryset', self.get_field_queryset(db,db_field,request))
+        kwargs['queryset'] = kwargs.get('queryset', self.get_field_queryset(db, db_field, request))
         return super(AccessControlMixin, self).formfield_for_manytomany(db_field, request, **kwargs)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -143,7 +147,7 @@ class AccessControlMixin(object):
         Not all Admin subclasses use get_field_queryset here, so we will use it explicitly
         '''
         db = kwargs.get('using')
-        kwargs['queryset'] = kwargs.get('queryset', self.get_field_queryset(db,db_field,request))
+        kwargs['queryset'] = kwargs.get('queryset', self.get_field_queryset(db, db_field, request))
         return super(AccessControlMixin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
     def get_changelist(self, request, **kwargs):
@@ -152,7 +156,7 @@ class AccessControlMixin(object):
         return ChangeList
 
     def has_add_permission(self, request):
-        r = AccessManager(self.model).appendable(request) != False
+        r = AccessManager(self.model).appendable(request) is not False
         return r
 
     def has_change_permission(self, request, obj=None):
@@ -163,7 +167,7 @@ class AccessControlMixin(object):
 
     def has_basic_change_permission(self, request, obj=None):
         manager = AccessManager(self.model)
-        if manager.check_changeable(self.model, request) == False:
+        if manager.check_changeable(self.model, request) is False:
             return False
         if obj:
             return bool(manager.apply_changeable(obj.__class__.objects.filter(id=obj.id), request))
@@ -171,7 +175,7 @@ class AccessControlMixin(object):
 
     def has_delete_permission(self, request, obj=None):
         manager = AccessManager(self.model)
-        if manager.check_deleteable(self.model, request) == False:
+        if manager.check_deleteable(self.model, request) is False:
             return False
         if obj:
             return bool(manager.apply_deleteable(obj.__class__.objects.filter(id=obj.id), request))
@@ -179,7 +183,7 @@ class AccessControlMixin(object):
 
     def has_view_permission(self, request, obj=None):
         manager = AccessManager(self.model)
-        if manager.check_visible(self.model, request) == False:
+        if manager.check_visible(self.model, request) is False:
             return False
         if obj:
             return bool(manager.apply_visible(obj.__class__.objects.filter(id=obj.id), request))
@@ -199,22 +203,23 @@ class AccessControlMixin(object):
 
     def get_all_model_fields(self):
         return [f.name for f in self.model._meta.get_fields()]
+
     def get_readonly_fields(self, request, obj=None):
         if not obj:
-            return super(AccessControlMixin,self).get_readonly_fields(request)
+            return super(AccessControlMixin, self).get_readonly_fields(request)
         if request.user.is_superuser:
-            return super(AccessControlMixin,self).get_readonly_fields(request)
+            return super(AccessControlMixin, self).get_readonly_fields(request)
         if not self.has_basic_change_permission(request):
             return self.get_all_model_fields()
-        if not self.has_basic_change_permission(request,obj):
+        if not self.has_basic_change_permission(request, obj):
             return self.get_all_model_fields()
-        return super(AccessControlMixin,self).get_readonly_fields(request)
+        return super(AccessControlMixin, self).get_readonly_fields(request)
 
     def save_model(self, request, obj, form, change):
         if request.user.is_superuser:
-            return super(AccessControlMixin,self).save_model(request, obj, form, change)
-        if change and self.has_basic_change_permission(request,obj):
-            return super(AccessControlMixin,self).save_model(request, obj, form, change)
+            return super(AccessControlMixin, self).save_model(request, obj, form, change)
+        if change and self.has_basic_change_permission(request, obj):
+            return super(AccessControlMixin, self).save_model(request, obj, form, change)
         if not change and self.has_add_permission(request):
             data = AccessManager(self.model).appendable(request)
             for k in data:
@@ -223,18 +228,18 @@ class AccessControlMixin(object):
                 if fieldname.endswith("_set"):
                     fieldname = fieldname[:-4]
                 field = form.instance._meta.get_field(fieldname)
-                if isinstance(v,collections.Iterable) and not isinstance(v,basestring) and isinstance(field,ForeignObjectRel):
+                if isinstance(v, collections.Iterable) and not isinstance(v, string_types) and isinstance(field, ForeignObjectRel):
                     continue
-                if getattr(obj,k) is None:
-                    setattr(obj,k,v)
-            return super(AccessControlMixin,self).save_model(request, obj, form, change)
+                if getattr(obj, k) is None:
+                    setattr(obj, k, v)
+            return super(AccessControlMixin, self).save_model(request, obj, form, change)
         raise PermissionDenied
 
     def save_related(self, request, form, formsets, change):
         if request.user.is_superuser:
-            return super(AccessControlMixin,self).save_related(request, form, formsets, change)
-        if change and self.has_basic_change_permission(request,form.instance):
-            return super(AccessControlMixin,self).save_related(request, form, formsets, change)
+            return super(AccessControlMixin, self).save_related(request, form, formsets, change)
+        if change and self.has_basic_change_permission(request, form.instance):
+            return super(AccessControlMixin, self).save_related(request, form, formsets, change)
         if not change and self.has_add_permission(request):
             data = AccessManager(self.model).appendable(request)
             for k in data:
@@ -243,21 +248,21 @@ class AccessControlMixin(object):
                 if fieldname.endswith("_set"):
                     fieldname = fieldname[:-4]
                 field = form.instance._meta.get_field(fieldname)
-                if isinstance(v,collections.Iterable) and not isinstance(v,basestring) and isinstance(field,ForeignObjectRel):
-                    fld = getattr(form.instance,k)
+                if isinstance(v, collections.Iterable) and not isinstance(v, string_types) and isinstance(field, ForeignObjectRel):
+                    fld = getattr(form.instance, k)
                     for i in v:
                         fld.add(i)
-            return super(AccessControlMixin,self).save_related(request, form, formsets, change)
+            return super(AccessControlMixin, self).save_related(request, form, formsets, change)
         raise PermissionDenied
 
     def save_formset(self, request, form, formset, change):
-        super(AccessControlMixin,self).save_formset(request, form, formset, change)
+        super(AccessControlMixin, self).save_formset(request, form, formset, change)
 
-    def get_actions(self,req):
-        r = super(AccessControlMixin,self).get_actions(req)
+    def get_actions(self, req):
+        r = super(AccessControlMixin, self).get_actions(req)
         if 'delete_selected' in r:
-            old_func,name,descr = r['delete_selected']
-            r['delete_selected'] = (self.__class__.delete_selected,name,descr)
+            old_func, name, descr = r['delete_selected']
+            r['delete_selected'] = (self.__class__.delete_selected, name, descr)
         return r
 
     @csrf_protect_m
@@ -273,8 +278,6 @@ class AccessControlMixin(object):
         '''
         opts = self.model._meta
         app_label = opts.app_label
-
-        manager = AccessManager(queryset.model)
 
         # Populate deletable_objects, a data structure of all related objects that
         # will also be deleted.
@@ -301,12 +304,12 @@ class AccessControlMixin(object):
         if sz == 1:
             objects_name = _('%(verbose_name)s "%(object)s"') % {
                 'verbose_name': force_text(opts.verbose_name),
-                'object':queryset[0]
+                'object': queryset[0]
             }
         else:
             objects_name = _('%(count)s %(verbose_name_plural)s') % {
-                'verbose_name_plural':force_text(opts.verbose_name_plural),
-                'count':sz
+                'verbose_name_plural': force_text(opts.verbose_name_plural),
+                'count': sz
             }
 
         if perms_needed or protected:
@@ -354,7 +357,7 @@ class AccessControlMixin(object):
         model_perms_needed = set()
         object_perms_needed = set()
 
-        STRONG_DELETION_CONTROL = getattr(settings,'ACCESS_STRONG_DELETION_CONTROL',False)
+        STRONG_DELETION_CONTROL = getattr(settings, 'ACCESS_STRONG_DELETION_CONTROL', False)
 
         def format_callback(obj):
             has_admin = obj.__class__ in self.admin_site._registry
@@ -380,9 +383,9 @@ class AccessControlMixin(object):
                 manager = AccessManager(obj.__class__)
                 # filter out forbidden items
                 if not request.user.is_superuser:
-                    if manager.check_deleteable(obj.__class__,request) == False:
+                    if manager.check_deleteable(obj.__class__, request) is False:
                         model_perms_needed.add(opts.verbose_name)
-                    if not manager.apply_deleteable(obj.__class__._default_manager.filter(pk=obj.pk),request):
+                    if not manager.apply_deleteable(obj.__class__._default_manager.filter(pk=obj.pk), request):
                         object_perms_needed.add(obj)
 
             if admin_url:
@@ -410,7 +413,7 @@ class AccessControlMixin(object):
                 if form.cleaned_data[DELETION_FIELD_NAME]:
                     queryset = form.instance.__class__.objects.filter(pk=form.instance.pk)
                     if not request.user.is_superuser:
-                        to_delete, model_count, perms_needed, protected = self.get_deleted_objects(request,queryset)
+                        to_delete, model_count, perms_needed, protected = self.get_deleted_objects(request, queryset)
                         if perms_needed:
                             raise ValidationError(mark_safe(_("Deleting for the following object types is forbidden: %(perms_needed)s") % {
                                 'perms_needed': ', '.join(perms_needed)
@@ -419,32 +422,40 @@ class AccessControlMixin(object):
                             raise ValidationError(mark_safe(_("Deleting the following objects is protected or forbidden: %(protected)s") % {
                                 'protected': ', '.join(protected)
                             }))
-            method = getattr(super(CheckDeleteRightsForm,form),"clean_%s" % DELETION_FIELD_NAME,None)
+            method = getattr(super(CheckDeleteRightsForm, form), "clean_%s" % DELETION_FIELD_NAME, None)
             if method:
                 return method()
             return form.cleaned_data[DELETION_FIELD_NAME]
+
         def clean(form):
-            err = form.errors.get(DELETION_FIELD_NAME,None)
+            err = form.errors.get(DELETION_FIELD_NAME, None)
             if err:
                 for e in err:
                     # reraising an error for the special field to see it above the record
                     raise ValidationError(e)
-            return super(CheckDeleteRightsForm,form).clean()
-        FormBase = kwargs.get('form',self.form)
-        CheckDeleteRightsForm = type("CheckDeleteRightsForm",(FormBase,),{
-            'clean_%s' % DELETION_FIELD_NAME:clean_delete_field,
-            'clean':clean
+            return super(CheckDeleteRightsForm, form).clean()
+
+        FormBase = kwargs.get('form', self.form)
+
+        CheckDeleteRightsForm = type("CheckDeleteRightsForm", (FormBase,), {
+            'clean_%s' % DELETION_FIELD_NAME: clean_delete_field,
+            'clean': clean
         })
+
         kw = {}
         kw.update(kwargs)
         kw['form'] = CheckDeleteRightsForm
-        return super(AccessControlMixin,self).get_formset(request, obj=obj, **kw)
 
-class AccessModelAdmin(AccessControlMixin,ModelAdmin):
+        return super(AccessControlMixin, self).get_formset(request, obj=obj, **kw)
+
+
+class AccessModelAdmin(AccessControlMixin, ModelAdmin):
     pass
 
-class AccessTabularInline(AccessControlMixin,TabularInline):
+
+class AccessTabularInline(AccessControlMixin, TabularInline):
     pass
 
-class AccessStackedInline(AccessControlMixin,StackedInline):
+
+class AccessStackedInline(AccessControlMixin, StackedInline):
     pass

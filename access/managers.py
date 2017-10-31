@@ -1,4 +1,5 @@
-from django.db.models import Model, Manager
+from django.db.models import Model
+
 
 class AccessManager(object):
     '''
@@ -20,17 +21,17 @@ class AccessManager(object):
     plugins = {}
 
     @classmethod
-    def register_plugins(cls,plugins):
+    def register_plugins(cls, plugins):
         '''
         Reguster plugins. The plugins parameter should be dict mapping model to plugin.
 
         Just calls a register_plugin for every such a pair.
         '''
         for model in plugins:
-            cls.register_plugin(model,plugins[model])
+            cls.register_plugin(model, plugins[model])
 
     @classmethod
-    def register_plugin(cls,model,plugin):
+    def register_plugin(cls, model, plugin):
         '''
         Reguster a plugin for the model.
 
@@ -39,7 +40,7 @@ class AccessManager(object):
         cls.plugins[model] = plugin
 
     @classmethod
-    def unregister_plugins(cls,plugins):
+    def unregister_plugins(cls, plugins):
         '''
         Unreguster plugins. The plugins parameter may be any iterable of models, or dict having models as keys,
 
@@ -49,7 +50,7 @@ class AccessManager(object):
             cls.unregister_plugin(model)
 
     @classmethod
-    def unregister_plugin(cls,model):
+    def unregister_plugin(cls, model):
         '''
         Unreguster a plugin for the model.
         '''
@@ -62,27 +63,28 @@ class AccessManager(object):
         '''
         from importlib import import_module
         from django.conf import settings
-        default_plugin = getattr(settings,'ACCESS_DEFAULT_PLUGIN',"access.plugins.DjangoAccessPlugin")
+        default_plugin = getattr(settings, 'ACCESS_DEFAULT_PLUGIN', "access.plugins.DjangoAccessPlugin")
         path = default_plugin.split('.')
         plugin_path = '.'.join(path[:-1])
         plugin_name = path[-1]
-        DefaultPlugin = getattr(import_module(plugin_path),plugin_name)
+        DefaultPlugin = getattr(import_module(plugin_path), plugin_name)
         return DefaultPlugin()
 
     @classmethod
-    def plugin_for(cls,model):
+    def plugin_for(cls, model):
         '''
         Find and return a plugin for this model. Uses inheritance to find a model where the plugin is registered.
         '''
-        if not issubclass(model,Model):
+        if not issubclass(model, Model):
             return
         if model in cls.plugins:
             return cls.plugins[model]
         for b in model.__bases__:
             p = cls.plugin_for(b)
-            if p: return p
+            if p:
+                return p
 
-    def __init__(self,model):
+    def __init__(self, model):
         '''
         Create AccessManager object passing Model subclass (not instance!) to the constructor.
         '''
@@ -95,9 +97,9 @@ class AccessManager(object):
         return self.model.objects.all()
 
     # Queryset-related checks
-    def apply_able(self,ability,queryset,request):
+    def apply_able(self, ability, queryset, request):
         '''
-        The apply_able(ability,queryset,request) applies the ability
+        The apply_able(ability, queryset, request) applies the ability
         to the instance set determined by the queryset for the user requesting the request.
 
         This call is passed to the resolved or default plugin if the plugin is
@@ -110,17 +112,17 @@ class AccessManager(object):
         by the admin.
         '''
         p = self.plugin_for(queryset.model)
-        if not hasattr(p,'apply_%s' % ability):
+        if not hasattr(p, 'apply_%s' % ability):
             p = self.get_default_plugin()
-        if not hasattr(p,'apply_%s' % ability):
+        if not hasattr(p, 'apply_%s' % ability):
             return
-        m = getattr(p,'apply_%s' % ability)
-        return m(queryset,request)
+        m = getattr(p, 'apply_%s' % ability)
+        return m(queryset, request)
 
     # Model-related checks
-    def check_able(self,ability,model,request):
+    def check_able(self, ability, model, request):
         '''
-        The check_able(ability,model,request) applies the ability
+        The check_able(ability, model, request) applies the ability
         to the model for the user requesting the request.
 
         This call is passed to the resolved or default plugin if the plugin is
@@ -146,48 +148,52 @@ class AccessManager(object):
         having an `add` method. Iterated values then are passed to the `add` method.
         '''
         p = self.plugin_for(model)
-        if not hasattr(p,'check_%s' % ability):
+        if not hasattr(p, 'check_%s' % ability):
             p = self.get_default_plugin()
-        if not hasattr(p,'check_%s' % ability):
+        if not hasattr(p, 'check_%s' % ability):
             return
-        m = getattr(p,'check_%s' % ability)
-        return m(model,request)
+        m = getattr(p, 'check_%s' % ability)
+        return m(model, request)
 
-    def visible(self,request):
+    def visible(self, request):
         '''
         Checks the both, check_visible and apply_visible, against the owned model and it's instance set
         '''
-        return self.apply_visible(self.get_queryset(),request) if self.check_visible(self.model,request) != False else self.get_queryset().none()
+        return self.apply_visible(self.get_queryset(), request) if self.check_visible(self.model, request) is not False else self.get_queryset().none()
 
-    def changeable(self,request):
+    def changeable(self, request):
         '''
         Checks the both, check_changeable and apply_changeable, against the owned model and it's instance set
         '''
-        return self.apply_changeable(self.get_queryset(),request) if self.check_changeable(self.model,request) != False else self.get_queryset().none()
+        return self.apply_changeable(self.get_queryset(), request) if self.check_changeable(self.model, request) is not False else self.get_queryset().none()
 
-    def deleteable(self,request):
+    def deleteable(self, request):
         '''
         Checks the both, check_deleteable and apply_deleteable, against the owned model and it's instance set
         '''
-        return self.apply_deleteable(self.get_queryset(),request) if self.check_deleteable(self.model,request) != False else self.get_queryset().none()
+        return self.apply_deleteable(self.get_queryset(), request) if self.check_deleteable(self.model, request) is not False else self.get_queryset().none()
 
-    def appendable(self,request):
+    def appendable(self, request):
         '''
         Checks the check_appendable against the owned model
         '''
-        return self.check_appendable(self.model,request)
+        return self.check_appendable(self.model, request)
 
-    def __getattr__(self,name):
-        method = None
+    def __getattr__(self, name):
         prefix = 'apply_'
         if name.startswith(prefix):
             ability = name[len(prefix):]
+
             def method(queryset, request):
                 return self.apply_able(ability, queryset, request)
+            return method
 
         prefix = 'check_'
         if name.startswith(prefix):
             ability = name[len(prefix):]
+
             def method(model, request):
                 return self.check_able(ability, model, request)
-        return method
+            return method
+
+        raise AttributeError(name)

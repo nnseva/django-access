@@ -1,0 +1,17 @@
+docs/_build
+build/
+dist/
+*.egg-info
+locale
+*.pyc
+*.pyo
+*.sqlite
+.svn/
+.tox/
+.ropeproject
+polib.py
+reversion
+tinymce
+pip-log.txt
+MANIFEST
+dist

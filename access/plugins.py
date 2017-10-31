@@ -1,7 +1,3 @@
-from django.db.models import Model
-from django.db.models.query import EmptyQuerySet, Q
-
-
 class AccessPluginBase(object):
     '''
     This base class is defined to be used as a base class for all
@@ -54,6 +50,7 @@ class AccessPluginBase(object):
     - appendable
     '''
 
+
 class ApplyAblePlugin(AccessPluginBase):
     '''
     The ApplyAblePlugin determines instance-level access rights basing on abilities determined by later evaluated
@@ -70,20 +67,22 @@ class ApplyAblePlugin(AccessPluginBase):
             visible=lambda queryset, request: queryset.filter(Q(park__enterprise__in=r.user.visible_enterprises()))
         )
     '''
-    def __init__(self,**kw):
+    def __init__(self, **kw):
         self._abilities = kw
 
-    def __getattr__(self,name):
+    def __getattr__(self, name):
         prefix = 'apply_'
         if name.startswith(prefix):
             ability = name[len(prefix):]
             apply_method = self._abilities.get(ability, lambda queryset, request: queryset)
+
             def method(queryset, request):
                 if request.user.is_superuser:
                     return queryset.all()
-                return apply_method(queryset,request)
+                return apply_method(queryset, request)
             return method
         raise AttributeError(name)
+
 
 class CheckAblePlugin(AccessPluginBase):
     '''
@@ -104,17 +103,18 @@ class CheckAblePlugin(AccessPluginBase):
         )
     '''
 
-    def __init__(self,**kw):
+    def __init__(self, **kw):
         self._abilities = kw
 
-    def __getattr__(self,name):
+    def __getattr__(self, name):
         prefix = 'check_'
         if name.startswith(prefix):
             ability = name[len(prefix):]
             check_method = self._abilities.get(ability, lambda model, request: {})
+
             def method(model, request):
                 d = check_method(model, request)
-                if d == False:
+                if d is False:
                     if request.user.is_superuser:
                         return {}
                     return False
@@ -123,6 +123,7 @@ class CheckAblePlugin(AccessPluginBase):
                 return d
             return method
         raise AttributeError(name)
+
 
 class SimpleCheckPlugin(CheckAblePlugin):
     '''
@@ -144,14 +145,15 @@ class SimpleCheckPlugin(CheckAblePlugin):
         )
     '''
 
-    def __init__(self,**kw):
-        def get_check_able(ability,cb):
-            def check(model,request):
-                if cb(model,request):
+    def __init__(self, **kw):
+        def get_check_able(ability, cb):
+            def check(model, request):
+                if cb(model, request):
                     return {}
                 return False
             return check
-        CheckAblePlugin.__init__(self,**{k:get_check_able(k,kw[k]) for k in kw})
+        CheckAblePlugin.__init__(self, **{k: get_check_able(k, kw[k]) for k in kw})
+
 
 class CompoundPlugin(AccessPluginBase):
     '''
@@ -171,15 +173,15 @@ class CompoundPlugin(AccessPluginBase):
             )
         )
     '''
-    def __init__(self,*plugins):
+    def __init__(self, *plugins):
         self.plugins = plugins
 
-    def check_appendable(self,model,request):
+    def check_appendable(self, model, request):
         ret = {}
         for p in self.plugins:
-            if hasattr(p,'check_appendable'):
-                r = p.check_appendable(model,request)
-                if r == False:
+            if hasattr(p, 'check_appendable'):
+                r = p.check_appendable(model, request)
+                if r is False:
                     return r
                 ret.update(r)
         return ret
@@ -187,27 +189,28 @@ class CompoundPlugin(AccessPluginBase):
     def apply_able(self, ability, queryset, request):
         ret = queryset
         for p in self.plugins:
-            if hasattr(p,'apply_%s' % ability):
-                method = getattr(p,'apply_%s' % ability)
-                ret = method(ret,request)
+            if hasattr(p, 'apply_%s' % ability):
+                method = getattr(p, 'apply_%s' % ability)
+                ret = method(ret, request)
         return ret
 
     def check_able(self, ability, model, request):
         ret = {}
         for p in self.plugins:
-            if hasattr(p,'check_%s' % ability):
-                method = getattr(p,'check_%s' % ability)
-                r = method(model,request)
-                if r == False:
+            if hasattr(p, 'check_%s' % ability):
+                method = getattr(p, 'check_%s' % ability)
+                r = method(model, request)
+                if r is False:
                     return False
                 ret.update(r)
         return ret
 
-    def __getattr__(self,name):
+    def __getattr__(self, name):
         method = None
         prefix = 'apply_'
         if name.startswith(prefix):
             ability = name[len(prefix):]
+
             def method(queryset, request):
                 return self.apply_able(ability, queryset, request)
             return method
@@ -215,40 +218,53 @@ class CompoundPlugin(AccessPluginBase):
         prefix = 'check_'
         if name.startswith(prefix):
             ability = name[len(prefix):]
+
             def method(model, request):
                 return self.check_able(ability, model, request)
             return method
         raise AttributeError(name)
 
+
 class CheckApplyPlugin(CompoundPlugin):
-    def __init__(self,check={},apply={}):
+    def __init__(self, check={}, apply={}):
         CompoundPlugin.__init__(self,
             CheckAblePlugin(**check),
             ApplyAblePlugin(**apply)
         )
 
+
 class DjangoAccessPlugin(CompoundPlugin):
     def __init__(self):
         CompoundPlugin.__init__(self,
             SimpleCheckPlugin(
-                appendable = lambda model, request: bool(request.user.has_perm("%s.add_%s" % (model._meta.app_label,model._meta.model_name))),
-                deleteable = lambda model, request: bool(request.user.has_perm("%s.delete_%s" % (model._meta.app_label,model._meta.model_name))),
-                changeable = lambda model, request: bool(request.user.has_perm("%s.change_%s" % (model._meta.app_label,model._meta.model_name))),
+                appendable=lambda model, request: bool(request.user.has_perm("%s.add_%s" % (
+                    model._meta.app_label, model._meta.model_name)
+                )),
+                deleteable=lambda model, request: bool(request.user.has_perm("%s.delete_%s" % (
+                    model._meta.app_label, model._meta.model_name)
+                )),
+                changeable=lambda model, request: bool(request.user.has_perm("%s.change_%s" % (
+                    model._meta.app_label, model._meta.model_name)
+                )),
             ),
             ApplyAblePlugin(
-                changeable = lambda queryset, request: queryset.all() if request.user.has_perm("%s.change_%s" % (queryset.model._meta.app_label,queryset.model._meta.model_name)) else queryset.none(),
-                deleteable = lambda queryset, request: queryset.all() if request.user.has_perm("%s.delete_%s" % (queryset.model._meta.app_label,queryset.model._meta.model_name)) else queryset.none(),
+                changeable=lambda queryset, request: queryset.all() if request.user.has_perm("%s.change_%s" % (
+                    queryset.model._meta.app_label, queryset.model._meta.model_name)
+                ) else queryset.none(),
+                deleteable=lambda queryset, request: queryset.all() if request.user.has_perm("%s.delete_%s" % (
+                    queryset.model._meta.app_label, queryset.model._meta.model_name)
+                ) else queryset.none(),
             )
         )
 
-    def check_visible(self,model,request):
+    def check_visible(self, model, request):
         return not (
-            self.check_appendable(model,request) == False and
-            self.check_changeable(model,request) == False and
-            self.check_deleteable(model,request) == False
+            self.check_appendable(model, request) is False and
+            self.check_changeable(model, request) is False and
+            self.check_deleteable(model, request) is False
         ) and {}
 
-    def apply_visible(self,queryset,request):
-        if self.check_visible(queryset.model, request) != False:
+    def apply_visible(self, queryset, request):
+        if self.check_visible(queryset.model, request) is not False:
             return queryset
         return queryset.none()
