@@ -149,12 +149,12 @@ from access.managers import AccessManager
 
 ...
     def has_add_permission(self, request):
-        r = AccessManager(self.model).appendable(request) != False
+        r = AccessManager(self.model).appendable(request) is not False
         return r
 
     def has_delete_permission(self, request, obj=None):
         manager = AccessManager(self.model)
-        if manager.check_deleteable(self.model, request) == False:
+        if manager.check_deleteable(self.model, request) is False:
             return False
         if obj:
             return bool(manager.apply_deleteable(obj.__class__.objects.filter(id=obj.id), request))
@@ -162,7 +162,7 @@ from access.managers import AccessManager
 
     def has_view_permission(self, request, obj=None):
         manager = AccessManager(self.model)
-        if manager.check_visible(self.model, request) == False:
+        if manager.check_visible(self.model, request) is False:
             return False
         if obj:
             return bool(manager.apply_visible(obj.__class__.objects.filter(id=obj.id), request))
@@ -173,7 +173,7 @@ Don't forget to check the return value of the `check_` method against False valu
 
 ```python
         if not manager.check_visible(self.model, request): # BAD
-        if manager.check_visible(self.model, request) == False: # GOOD
+        if manager.check_visible(self.model, request) is False: # GOOD
 ```
 
 ## Customising access rules using plugins

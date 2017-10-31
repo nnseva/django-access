@@ -46,7 +46,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
 
         # Indicate who your project is intended for
         'Intended Audience :: Developers',
@@ -56,7 +56,7 @@ setup(
 
         'Framework :: Django',
         'Framework :: Django :: 1.10',
-        #'Framework :: Django :: 1.11',
+        'Framework :: Django :: 1.11',
 
         # Pick your license as you wish (should match "license" above)
         'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)',
@@ -65,9 +65,9 @@ setup(
         # that you indicate whether you support Python 2, Python 3 or both.
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
-        #'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3',
         #'Programming Language :: Python :: 3.3',
-        #'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.4',
         #'Programming Language :: Python :: 3.5',
     ],
 
@@ -86,7 +86,7 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['django>=1.10,<1.11'],
+    install_requires=['django>=1.10,<1.12'],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
