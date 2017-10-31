@@ -74,11 +74,11 @@ class DjangoAccessTest(TestBase):
         c = Client()
         c.login(username='another',password='test')
         response = c.get('/admin/auth/')
-        self.assertEqual(response.status_code,403)
+        self.assertNotEqual(response.status_code,200)
         response = c.get('/admin/auth/user/')
-        self.assertEqual(response.status_code,403)
+        self.assertNotEqual(response.status_code,200)
         response = c.get('/admin/auth/group/')
-        self.assertEqual(response.status_code,403)
+        self.assertNotEqual(response.status_code,200)
 
     def test_2_check_allowed_django_user_permissions(self):
         c = Client()
@@ -107,7 +107,7 @@ class InstanceAccessTest(TestBase):
         response = c.get('/admin/auth/group/')
         self.assertEqual(response.status_code,200)
         response = c.get('/admin/auth/group/%s/change/' % self.group.id)
-        self.assertEqual(response.status_code,404)
+        self.assertNotEqual(response.status_code,200)
 
     def test_2_check_allowed_instance_permissions(self):
         c = Client()
@@ -137,4 +137,4 @@ class InstanceAccessTest(TestBase):
         response = c.get('/admin/auth/user/%s/change/' % self.another.id)
         self.assertEqual(response.status_code,200)
         response = c.post('/admin/auth/user/%s/change/' % self.another.id, data={'username':'test2'})
-        self.assertEqual(response.status_code,403)
+        self.assertNotEqual(response.status_code,200)
