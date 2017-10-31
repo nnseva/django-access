@@ -2,6 +2,18 @@
 
 # Django-Access
 
+## Installation
+
+*Stable version* from the PyPi package repository
+```bash
+pip install django-access
+```
+
+*Last development version* from the GitHub source version control system
+```
+pip install git+git://github.com/nnseva/django-access.git
+```
+
 ## Introduction
 
 ### Inspiration
