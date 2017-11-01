@@ -14,6 +14,25 @@ pip install django-access
 pip install git+git://github.com/nnseva/django-access.git
 ```
 
+## Configuration
+
+Include the `access` application into the `INSTALLED_APPS` list, like:
+
+```python
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    ...
+    'access',
+    ...
+]
+```
+Use the following available settings to tune the access application:
+
+- `ACCESS_DEFAULT_PLUGIN` settings value determines a ***string*** referring default plugin class. See below the [Default Plugin](#default-plugin) section.
+
+- `ACCESS_STRONG_DELETION_CONTROL` settings value (default backward compatible value is False) controls, whether the restriction to delete is controlled for models not having a separate (not Inline) Admin. See below the [Backward compatible deletion control](#backward-compatible-deletion-control) section.
+
 ## Introduction
 
 ### Inspiration
@@ -333,8 +352,6 @@ For example:
 
 This plugin defines access rules near to the former Django *Permission* access control system.
 
-The `ACCESS_STRONG_DELETION_CONTROL` settings variable (default is False) controls, whether the restriction to delete is controlled for models not having a separate (not Inline) Admin. If yes, the forbidden instances are included in the set of protected instances when trying to delete.
-
 For example:
 
 ```python
@@ -350,6 +367,10 @@ For example:
         ),
     )
 ```
+
+### Backward compatible deletion control
+
+The `ACCESS_STRONG_DELETION_CONTROL` settings variable (default, backward compatible value is False) controls, whether the restriction to delete is controlled for models not having a separate (not Inline) Admin. If yes, the forbidden instances are included in the set of protected instances when trying to delete from the Admin.
 
 ## Compatibility issues
 
