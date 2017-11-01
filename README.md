@@ -119,7 +119,10 @@ class AccessUserAdmin(AccessControlMixin,UserAdmin):
             if not 'fields' in params:
                 ret.append((nm,params))
                 continue
-            fields = list(set(params['fields']).difference(exclude))
+            fields = []
+            for f in params['fields']:
+                if not f in exclude:
+                    fields.append(f)
             pars = {}
             pars.update(params)
             pars['fields'] = fields
@@ -133,8 +136,8 @@ class AccessUserAdmin(AccessControlMixin,UserAdmin):
         if not obj:
             return fieldsets
         if obj.pk != request.user.pk:
-            return self._fieldsets_exclude(fieldsets,['password','email'])
-        return fieldsets
+            return self._fieldsets_exclude(fieldsets,['password', 'email'])
+        return self._fieldsets_exclude(fieldsets,['is_superuser'])
 
 class AccessGroupAdmin(AccessControlMixin,GroupAdmin):
     pass
@@ -355,3 +358,112 @@ The package has been developed and tested against Django v.1.10 and v.1.11.
 ## Examples
 
 Just look into the *example* folder.
+
+The example project uses `django.contrib.auth` models and also has an own application `someapp` introducing two models:
+- `SomeObject` controlled by the separate `ModelAdmin` having a foreign key to the `Group` of editors, and many-to-many relation to `Group`s of viewers
+- `SomeChild` which has a foreign key to the `SomeObject` and controlled by the `InlineAdmin`
+
+The example is oriented to the following access scheme:
+- The superuser can anything
+- Django Permissions are applied
+- The other User record is accessible for reading except e-mail and password
+- The own User record is accessible for writing (except `is_superuser` flag)
+- Groups and Permissions are visible only for those Users who have relations to them
+- SomeObject is visible for viewers, and changeable for editors, defined by the related `Group` instances
+
+When the `Group` is created, the creator is included into this `Group`.
+
+The following code of two `models.py` files describes this access scheme:
+
+```python
+from django.db import models
+from django.db.models.query import Q
+from django.contrib.auth.models import User, Group, Permission
+
+from access.plugins import CompoundPlugin, ApplyAblePlugin, CheckAblePlugin, DjangoAccessPlugin
+from access.managers import AccessManager
+
+AccessManager.register_plugins({
+    Permission:ApplyAblePlugin(visible=lambda queryset, request: queryset.filter(
+            Q(user=request.user) |
+            Q(group__in=request.user.groups.all())
+        )),
+    User:CompoundPlugin(
+        DjangoAccessPlugin(),
+        ApplyAblePlugin(
+            changeable=lambda queryset, request: queryset.filter(Q(id=request.user.id)),
+            deleteable=lambda queryset, request: queryset.filter(Q(id=request.user.id)),
+        )
+    ),
+    Group:CompoundPlugin(
+        DjangoAccessPlugin(),
+        CheckAblePlugin(
+            appendable=lambda model, request: {'user_set':[request.user]}
+        ),
+        ApplyAblePlugin(
+            visible=lambda queryset, request: queryset.filter(user=request.user),
+            changeable=lambda queryset, request: queryset.filter(user=request.user),
+            deleteable=lambda queryset, request: queryset.filter(user=request.user),
+        ),
+    )
+})
+```
+
+```python
+from django.db.models import Model
+from django.db.models.query import Q
+from django.contrib.auth.models import Group
+
+from django.utils.translation import ugettext_lazy as _
+
+from access.plugins import CompoundPlugin, ApplyAblePlugin, CheckAblePlugin, DjangoAccessPlugin
+from access.managers import AccessManager
+
+# Create your models here.
+
+class SomeObject(Model):
+    editor_group = models.ForeignKey(Group,verbose_name=_("Editor Group"), related_name='changeable_objects')
+    viewer_groups = models.ManyToManyField(Group,verbose_name=_("Viewer Groups"), blank=True, related_name='visible_objects')
+    name = models.CharField(max_length=80,verbose_name=_("Name"))
+
+    def __unicode__(self):
+        return _("Object: %s") % self.name
+
+    class Meta:
+        verbose_name = _("Some Object")
+        verbose_name_plural = _("Some Objects")
+
+class SomeChild(Model):
+    parent = models.ForeignKey(SomeObject,verbose_name=_("Parent"), related_name='children')
+    name = models.CharField(max_length=80,verbose_name=_("Name"))
+    is_archived = models.BooleanField(verbose_name=_("Is Archived"),default=False)
+
+    def __unicode__(self):
+        if self.is_archived:
+            return _("Child: %s (archived)") % self.name
+        return _("Child: %s") % self.name
+
+    class Meta:
+        verbose_name = _("Some Child")
+        verbose_name_plural = _("Some Childs")
+
+AccessManager.register_plugins({
+    SomeObject: CompoundPlugin(
+        DjangoAccessPlugin(),
+        ApplyAblePlugin(
+            visible=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())|Q(viewer_groups__in=request.user.groups.all())),
+            changeable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())),
+            #deleteable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())).exclude(Q(children__is_archived=False)),
+            deleteable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())),
+        )
+    ),
+    SomeChild: CompoundPlugin(
+        DjangoAccessPlugin(),
+        ApplyAblePlugin(
+            visible=lambda queryset, request: queryset.filter(Q(is_archived=False)&(Q(parent__editor_group__in=request.user.groups.all())|Q(parent__viewer_gr
+            changeable=lambda queryset, request: queryset.filter(Q(parent__editor_group__in=request.user.groups.all())),
+            deleteable=lambda queryset, request: queryset.filter(Q(is_archived=True) & Q(parent__editor_group__in=request.user.groups.all())),
+        )
+    )
+})
+```
