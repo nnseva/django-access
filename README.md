@@ -453,7 +453,6 @@ AccessManager.register_plugins({
         ApplyAblePlugin(
             visible=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())|Q(viewer_groups__in=request.user.groups.all())),
             changeable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())),
-            #deleteable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())).exclude(Q(children__is_archived=False)),
             deleteable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())),
         )
     ),
