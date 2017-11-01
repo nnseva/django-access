@@ -28,7 +28,10 @@ class AccessUserAdmin(AccessControlMixin,UserAdmin):
             if not 'fields' in params:
                 ret.append((nm,params))
                 continue
-            fields = list(set(params['fields']).difference(exclude))
+            fields = []
+            for f in params['fields']:
+                if not f in exclude:
+                    fields.append(f)
             pars = {}
             pars.update(params)
             pars['fields'] = fields
@@ -42,8 +45,8 @@ class AccessUserAdmin(AccessControlMixin,UserAdmin):
         if not obj:
             return fieldsets
         if obj.pk != request.user.pk:
-            return self._fieldsets_exclude(fieldsets,['password','email'])
-        return fieldsets
+            return self._fieldsets_exclude(fieldsets,['password', 'email'])
+        return self._fieldsets_exclude(fieldsets,['is_superuser'])
 
 class AccessGroupAdmin(AccessControlMixin,GroupAdmin):
     pass
