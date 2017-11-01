@@ -10,7 +10,7 @@ from django.contrib import messages
 
 from django.template.response import TemplateResponse
 
-from django.contrib.admin.filters import RelatedFieldListFilter, SimpleListFilter
+from django.contrib.admin.filters import RelatedFieldListFilter
 
 from django.utils.translation import ugettext_lazy as _
 
@@ -43,7 +43,7 @@ class RelatedFieldVisibleListFilter(RelatedFieldListFilter):
             return [l for l in super(RelatedFieldVisibleListFilter, self).field_choices(field, request, model_admin)]
         else:
             q = field.rel.to.objects.all()
-            return [(o.pk, text_type(o)) for o in AccessManager(field.rel.to).apply_visible(q,request).distinct()]
+            return [(o.pk, text_type(o)) for o in AccessManager(field.rel.to).apply_visible(q, request).distinct()]
 
 
 class RelatedFieldPresentListFilter(RelatedFieldListFilter):
