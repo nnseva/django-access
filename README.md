@@ -18,7 +18,7 @@ pip install git+git://github.com/nnseva/django-access.git
 
 Include the `access` application into the `INSTALLED_APPS` list, like:
 
-```
+```python
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
