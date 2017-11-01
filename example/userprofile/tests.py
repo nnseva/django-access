@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase as _TestCase
 from django.test import Client
 
 import unittest
@@ -13,6 +13,13 @@ from django.core.exceptions import ValidationError
 
 import logging
 
+from django.utils.six import text_type, string_types
+
+class TestCase(_TestCase):
+    if not hasattr(_TestCase,'assertRegex'):
+        assertRegex = _TestCase.assertRegexpMatches
+    if not hasattr(_TestCase,'assertNotRegex'):
+        assertNotRegex = _TestCase.assertNotRegexpMatches
 
 class TestBase(TestCase):
     def setUp(self):
@@ -30,8 +37,13 @@ class TestBase(TestCase):
         self.third = User.objects.create(username="third",is_active=True,is_staff=True)
         self.third.set_password("test")
         self.third.save()
+        self.fourth = User.objects.create(username="fourth",is_active=True,is_staff=True)
+        self.fourth.set_password("test")
+        self.fourth.save()
         self.group = Group.objects.create(name="some")
         self.group.save()
+        self.other_group = Group.objects.create(name="other")
+        self.other_group.save()
 
         for cn in dir(auth.models):
             c = getattr(auth.models,cn)
@@ -50,7 +62,16 @@ class TestBase(TestCase):
                         )
                     )
 
+        for cc in ['add','change','delete']:
+            self.other_group.permissions.add(
+                Permission.objects.get(
+                    content_type=ContentType.objects.get(app_label='auth',model='user'),
+                    codename='%s_%s' % (cc,'user'),
+                )
+            )
+
         self.group.user_set.add(self.third)
+        self.other_group.user_set.add(self.fourth)
 
     def tearDown(self):
         from django.contrib.auth.models import User, Group, Permission
@@ -138,3 +159,19 @@ class InstanceAccessTest(TestBase):
         self.assertEqual(response.status_code,200)
         response = c.post('/admin/auth/user/%s/change/' % self.another.id, data={'username':'test2'})
         self.assertNotEqual(response.status_code,200)
+
+    def test_5_check_restricted_filters(self):
+        c = Client()
+        c.login(username='fourth',password='test')
+        response = c.get('/admin/auth/user/')
+        self.assertEqual(response.status_code,200)
+        self.assertRegex(text_type(response.content),r'href="\?groups__id__exact=%s"[^>]*>%s' % (self.other_group.pk,self.other_group.name))
+        self.assertNotRegex(text_type(response.content),r'href="\?groups__id__exact=%s"[^>]*>%s' % (self.group.pk,self.group.name))
+
+    def test_6_check_restricted_selects(self):
+        c = Client()
+        c.login(username='fourth',password='test')
+        response = c.get('/admin/auth/user/%s/change/' % self.fourth.pk)
+        self.assertEqual(response.status_code,200)
+        self.assertRegex(text_type(response.content),r'<option\ value="%s"\ selected[^>]*>%s' % (self.other_group.pk,self.other_group.name))
+        self.assertNotRegex(text_type(response.content),r'<option\ value="%s"\ selected[^>]*>%s' % (self.group.pk,self.group.name))

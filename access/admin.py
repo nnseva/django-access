@@ -10,7 +10,7 @@ from django.contrib import messages
 
 from django.template.response import TemplateResponse
 
-from django.contrib.admin.filters import RelatedFieldListFilter
+from django.contrib.admin.filters import RelatedFieldListFilter, SimpleListFilter
 
 from django.utils.translation import ugettext_lazy as _
 
@@ -38,26 +38,23 @@ import collections
 
 
 class RelatedFieldVisibleListFilter(RelatedFieldListFilter):
-    def lookups(self, request, model_admin):
-        if not hasattr(self.field, 'rel'):
-            for l in super(RelatedFieldVisibleListFilter, self).lookups(request, model_admin):
-                yield l
+    def field_choices(self, field, request, model_admin):
+        if not hasattr(field, 'rel'):
+            return [l for l in super(RelatedFieldVisibleListFilter, self).field_choices(field, request, model_admin)]
         else:
-            for o in AccessManager(self.field.rel.to).visible(request).distinct():
-                yield (o.pk, text_type(o))
+            q = field.rel.to.objects.all()
+            return [(o.pk, text_type(o)) for o in AccessManager(field.rel.to).apply_visible(q,request).distinct()]
 
 
 class RelatedFieldPresentListFilter(RelatedFieldListFilter):
-    def lookups(self, request, model_admin):
-        if not hasattr(self.field, 'rel'):
-            for l in super(RelatedFieldPresentListFilter, self).lookups(request, model_admin):
-                yield l
+    def field_choices(self, field, request, model_admin):
+        if not hasattr(field, 'rel'):
+            return [l for l in super(RelatedFieldPresentListFilter, self).field_choices(field, request, model_admin)]
         else:
-            q = self.field.rel.to.objects.filter(
-                pk__in=model_admin.get_queryset(self.request).values(self.field_path)
+            q = field.rel.to.objects.filter(
+                pk__in=model_admin.get_queryset(request).values(self.field_path)
             ).distinct()
-            for o in q:
-                yield (o.pk, text_type(o))
+            return [(o.pk, text_type(o)) for o in q]
 
 
 class NoListEditableChangeList(ChangeList):
@@ -129,9 +126,7 @@ class AccessControlMixin(object):
         qs = super(AccessControlMixin, self).get_field_queryset(db, db_field, request)
         manager = AccessManager(db_field.rel.to)
         if qs is None:
-            return manager.visible(request)
-        if manager.check_visible(qs.model, request) is False:
-            return qs.none()
+            qs = manager.get_queryset()
         return manager.apply_visible(qs, request)
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):

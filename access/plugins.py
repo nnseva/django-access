@@ -263,8 +263,3 @@ class DjangoAccessPlugin(CompoundPlugin):
             self.check_changeable(model, request) is False and
             self.check_deleteable(model, request) is False
         ) and {}
-
-    def apply_visible(self, queryset, request):
-        if self.check_visible(queryset.model, request) is not False:
-            return queryset
-        return queryset.none()
