@@ -8,3 +8,5 @@ install:
 script:
   - tox
 sudo: false
+notifications:
+    email: false
