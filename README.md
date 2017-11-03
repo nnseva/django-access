@@ -33,6 +33,8 @@ Use the following available settings to tune the access application:
 
 - `ACCESS_STRONG_DELETION_CONTROL` settings value (default backward compatible value is False) controls, whether the restriction to delete is controlled for models not having a separate (not Inline) Admin. See below the [Backward compatible deletion control](#backward-compatible-deletion-control) section.
 
+- `ACCESS_DEFAULT_PLUGIN` settings value (`"access.plugins.DjangoAccessPlugin"` by default) controls, what the plugin is used as a default plugin. Value is a string referring to the plugin class appropriate to import using the `import_module` call.
+
 ## Introduction
 
 ### Inspiration
@@ -168,9 +170,9 @@ admin.site.unregister(models.Group)
 admin.site.register(models.Group,AccessGroupAdmin)
 ```
 
-## Using the *Django-Access* package with third-party applications
+## Using the *Django-Access* package for your purposes
 
-You are free to check access to models and instances as the *Django-Access* application does it.
+You are free to check access to models and instances exactly the same as the *Django-Access* application does it.
 
 Use lightweight *AccessManager* object instances to control access to the particular model and proper call to the plugin registry.
 
@@ -201,13 +203,15 @@ from access.managers import AccessManager
         if obj:
             return bool(manager.apply_visible(obj.__class__.objects.filter(id=obj.id), request))
         return True
-```    
+```
 
 Don't forget to check the return value of the `check_` method against False value explicitly:
 
 ```python
         if not manager.check_visible(self.model, request): # BAD
+            ...
         if manager.check_visible(self.model, request) is False: # GOOD
+            ...
 ```
 
 ## Customising access rules using plugins
@@ -222,25 +226,89 @@ You can register plugins for any model classes, either standard, or from third-p
 
 You can register a plugin for any `Model` class, even a *abstract* one. This `Model` and *all its ancestors* (except those for which the own plugin is registered) will be controlled by this plugin instance.
 
-We recommend register plugins in the models.py modules immediately after the model definitions.
+We recommend register plugins in the models.py module of the separate django application without its own models. Put this application after the all others in the `INSTALLED_APPS` section of the settings module.
 
 For example:
 
 ```python
+from __future__ import unicode_literals
+
 from django.db import models
 from django.db.models.query import Q
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import User, Group, Permission
 
-from access.plugins import CompoundPlugin, ApplyAblePlugin
+from access.plugins import CompoundPlugin, ApplyAblePlugin, CheckAblePlugin, DjangoAccessPlugin
 from access.managers import AccessManager
+
+from someapp.models import SomeObject, SomeChild
+
 
 AccessManager.register_plugins({
     Permission:ApplyAblePlugin(visible=lambda queryset, request: queryset.filter(
             Q(user=request.user) |
             Q(group__in=request.user.groups.all())
         )),
+    User:CompoundPlugin(
+        DjangoAccessPlugin(),
+        ApplyAblePlugin(
+            changeable=lambda queryset, request: queryset.filter(Q(id=request.user.id)),
+            deleteable=lambda queryset, request: queryset.filter(Q(id=request.user.id)),
+        )
+    ),
+    Group:CompoundPlugin(
+        DjangoAccessPlugin(),
+        CheckAblePlugin(
+            appendable=lambda model, request: {'user_set':[request.user]}
+        ),
+        ApplyAblePlugin(
+            visible=lambda queryset, request: queryset.filter(user=request.user),
+            changeable=lambda queryset, request: queryset.filter(user=request.user),
+            deleteable=lambda queryset, request: queryset.filter(user=request.user),
+        ),
     )
 })
+
+AccessManager.register_plugins({
+    SomeObject: CompoundPlugin(
+        DjangoAccessPlugin(),
+        ApplyAblePlugin(
+            visible=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())|Q(viewer_groups__in=request.user.groups.all())),
+            changeable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())),
+            #deleteable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())).exclude(Q(children__is_archived=False)),
+            deleteable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())),
+        )
+    ),
+    SomeChild: CompoundPlugin(
+        DjangoAccessPlugin(),
+        ApplyAblePlugin(
+            visible=lambda queryset, request: queryset.filter(Q(is_archived=False)&(Q(parent__editor_group__in=request.user.groups.all())|Q(parent__viewer_groups__in=request.user.groups.all()))),
+            changeable=lambda queryset, request: queryset.filter(Q(parent__editor_group__in=request.user.groups.all())),
+            deleteable=lambda queryset, request: queryset.filter(Q(is_archived=True) & Q(parent__editor_group__in=request.user.groups.all())),
+        )
+    )
+})
+```
+
+```python
+INSTALLED_APPS = [
+    # Django applications
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+
+    # Access package
+    'access',
+
+    # Project own models
+    'someapp',
+
+    # Here the special application to register all access rules
+    'accessprofile',
+]
+
 ```
 
 ### Default plugin

@@ -115,7 +115,7 @@ class AccessManager(object):
         if not hasattr(p, 'apply_%s' % ability):
             p = self.get_default_plugin()
         if not hasattr(p, 'apply_%s' % ability):
-            return
+            return queryset
         m = getattr(p, 'apply_%s' % ability)
         return m(queryset, request)
 
@@ -151,7 +151,7 @@ class AccessManager(object):
         if not hasattr(p, 'check_%s' % ability):
             p = self.get_default_plugin()
         if not hasattr(p, 'check_%s' % ability):
-            return
+            return {}
         m = getattr(p, 'check_%s' % ability)
         return m(model, request)
 
