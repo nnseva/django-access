@@ -55,7 +55,7 @@ The *Django-Access* package introduces a dynamic evaluation-based instance-level
 
 The plugin-based system allows registering any custom plugin assigning access control rules for any particular, or abstract model in your project.
 
-The predefined set of plugin classes contains standard model-level *DjangoPlugin* taking in account the former Django permission system like the Django itself does it.
+The predefined set of plugin classes contains standard model-level *DjangoAccessPlugin* taking in account the former Django permission system like the Django itself does it.
 
 Any combination of plugins may be registered together for one model using predefined *CompoundPlugin*, which checks the access rules per every plugin in the registered combination.
 
