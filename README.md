@@ -29,11 +29,9 @@ INSTALLED_APPS = [
 ```
 Use the following available settings to tune the access application:
 
-- `ACCESS_DEFAULT_PLUGIN` settings value determines a ***string*** referring default plugin class. See below the [Default Plugin](#default-plugin) section.
-
 - `ACCESS_STRONG_DELETION_CONTROL` settings value (default backward compatible value is False) controls, whether the restriction to delete is controlled for models not having a separate (not Inline) Admin. See below the [Backward compatible deletion control](#backward-compatible-deletion-control) section.
 
-- `ACCESS_DEFAULT_PLUGIN` settings value (`"access.plugins.DjangoAccessPlugin"` by default) controls, what the plugin is used as a default plugin. Value is a string referring to the plugin class appropriate to import using the `import_module` call.
+- `ACCESS_DEFAULT_PLUGIN` settings value (`"access.plugins.DjangoAccessPlugin"` by default) controls, what the plugin is used as a default plugin. Value is a string referring to the plugin class appropriate to import using the `import_module` call. See below the [Default Plugin](#default-plugin) section.
 
 ## Introduction
 
@@ -224,7 +222,7 @@ The *Django-Access* package uses a global access control plugin registry. Every 
 
 You can register plugins for any model classes, either standard, or from third-party packages, or your own. *Note* that you can register the only one plugin instance for the model. Registering another plugin instance for the same model unregisters the previous one. In order to combine several plugins, you can use a provided *CompoundPlugin* as described below.
 
-You can register a plugin for any `Model` class, even a *abstract* one. This `Model` and *all its ancestors* (except those for which the own plugin is registered) will be controlled by this plugin instance.
+You can register a plugin for any `Model` class, even a *abstract* one. This `Model` and *all its successors* (except those for which the own plugin is registered) will be controlled by this plugin instance.
 
 We recommend register plugins in the models.py module of the separate django application without its own models. Put this application after the all others in the `INSTALLED_APPS` section of the settings module.
 
