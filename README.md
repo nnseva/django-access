@@ -461,3 +461,7 @@ The example is oriented to the following access scheme:
 When the `Group` is created, the creator is included into this `Group`.
 
 Code from the example is used in this file to illustrate different details of the package. You can see the original example on the GitHub repository.
+
+## See also
+
+The [Django-Access-Tastypie](https://github.com/nnseva/django-access-tastypie) package introduces an authorization backend for the [Django-Tastypie package](https://django-tastypie.readthedocs.io/en/latest/) to use access rules defined here.
