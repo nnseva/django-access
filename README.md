@@ -63,7 +63,7 @@ The standalone *AccessModelAdmin*, as well as inline *AccessTabularInline* and *
 
 You can create a custom Model Admin class basing on one of model admin classes introduced by the package, for your own model, or redefine any standard Django, or third-party Model Admin, or even your own former Model Admin class in the existent project, using a special *AccessControlMixin* introduced by the package.
 
-Access control customization for Tastypie and other packages coming soon.
+Access control customization for Tastypie is [already implemented](https://github.com/nnseva/django-access-tastypie). Other packages support is coming soon.
 
 ## Using the *Django-Access* package in the admin
 
