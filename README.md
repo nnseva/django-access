@@ -29,11 +29,9 @@ INSTALLED_APPS = [
 ```
 Use the following available settings to tune the access application:
 
-- `ACCESS_DEFAULT_PLUGIN` settings value determines a ***string*** referring default plugin class. See below the [Default Plugin](#default-plugin) section.
-
 - `ACCESS_STRONG_DELETION_CONTROL` settings value (default backward compatible value is False) controls, whether the restriction to delete is controlled for models not having a separate (not Inline) Admin. See below the [Backward compatible deletion control](#backward-compatible-deletion-control) section.
 
-- `ACCESS_DEFAULT_PLUGIN` settings value (`"access.plugins.DjangoAccessPlugin"` by default) controls, what the plugin is used as a default plugin. Value is a string referring to the plugin class appropriate to import using the `import_module` call.
+- `ACCESS_DEFAULT_PLUGIN` settings value (`"access.plugins.DjangoAccessPlugin"` by default) controls, what the plugin is used as a default plugin. Value is a string referring to the plugin class appropriate to import using the `import_module` call. See below the [Default Plugin](#default-plugin) section.
 
 ## Introduction
 
@@ -55,7 +53,7 @@ The *Django-Access* package introduces a dynamic evaluation-based instance-level
 
 The plugin-based system allows registering any custom plugin assigning access control rules for any particular, or abstract model in your project.
 
-The predefined set of plugin classes contains standard model-level *DjangoPlugin* taking in account the former Django permission system like the Django itself does it.
+The predefined set of plugin classes contains standard model-level *DjangoAccessPlugin* taking in account the former Django permission system like the Django itself does it.
 
 Any combination of plugins may be registered together for one model using predefined *CompoundPlugin*, which checks the access rules per every plugin in the registered combination.
 
@@ -224,7 +222,7 @@ The *Django-Access* package uses a global access control plugin registry. Every 
 
 You can register plugins for any model classes, either standard, or from third-party packages, or your own. *Note* that you can register the only one plugin instance for the model. Registering another plugin instance for the same model unregisters the previous one. In order to combine several plugins, you can use a provided *CompoundPlugin* as described below.
 
-You can register a plugin for any `Model` class, even a *abstract* one. This `Model` and *all its ancestors* (except those for which the own plugin is registered) will be controlled by this plugin instance.
+You can register a plugin for any `Model` class, even a *abstract* one. This `Model` and *all its successors* (except those for which the own plugin is registered) will be controlled by this plugin instance.
 
 We recommend register plugins in the models.py module of the separate django application without its own models. Put this application after the all others in the `INSTALLED_APPS` section of the settings module.
 
@@ -462,96 +460,4 @@ The example is oriented to the following access scheme:
 
 When the `Group` is created, the creator is included into this `Group`.
 
-The following code of two `models.py` files describes this access scheme:
-
-```python
-from django.db import models
-from django.db.models.query import Q
-from django.contrib.auth.models import User, Group, Permission
-
-from access.plugins import CompoundPlugin, ApplyAblePlugin, CheckAblePlugin, DjangoAccessPlugin
-from access.managers import AccessManager
-
-AccessManager.register_plugins({
-    Permission:ApplyAblePlugin(visible=lambda queryset, request: queryset.filter(
-            Q(user=request.user) |
-            Q(group__in=request.user.groups.all())
-        )),
-    User:CompoundPlugin(
-        DjangoAccessPlugin(),
-        ApplyAblePlugin(
-            changeable=lambda queryset, request: queryset.filter(Q(id=request.user.id)),
-            deleteable=lambda queryset, request: queryset.filter(Q(id=request.user.id)),
-        )
-    ),
-    Group:CompoundPlugin(
-        DjangoAccessPlugin(),
-        CheckAblePlugin(
-            appendable=lambda model, request: {'user_set':[request.user]}
-        ),
-        ApplyAblePlugin(
-            visible=lambda queryset, request: queryset.filter(user=request.user),
-            changeable=lambda queryset, request: queryset.filter(user=request.user),
-            deleteable=lambda queryset, request: queryset.filter(user=request.user),
-        ),
-    )
-})
-```
-
-```python
-from django.db.models import Model
-from django.db.models.query import Q
-from django.contrib.auth.models import Group
-
-from django.utils.translation import ugettext_lazy as _
-
-from access.plugins import CompoundPlugin, ApplyAblePlugin, CheckAblePlugin, DjangoAccessPlugin
-from access.managers import AccessManager
-
-# Create your models here.
-
-class SomeObject(Model):
-    editor_group = models.ForeignKey(Group,verbose_name=_("Editor Group"), related_name='changeable_objects')
-    viewer_groups = models.ManyToManyField(Group,verbose_name=_("Viewer Groups"), blank=True, related_name='visible_objects')
-    name = models.CharField(max_length=80,verbose_name=_("Name"))
-
-    def __unicode__(self):
-        return _("Object: %s") % self.name
-
-    class Meta:
-        verbose_name = _("Some Object")
-        verbose_name_plural = _("Some Objects")
-
-class SomeChild(Model):
-    parent = models.ForeignKey(SomeObject,verbose_name=_("Parent"), related_name='children')
-    name = models.CharField(max_length=80,verbose_name=_("Name"))
-    is_archived = models.BooleanField(verbose_name=_("Is Archived"),default=False)
-
-    def __unicode__(self):
-        if self.is_archived:
-            return _("Child: %s (archived)") % self.name
-        return _("Child: %s") % self.name
-
-    class Meta:
-        verbose_name = _("Some Child")
-        verbose_name_plural = _("Some Childs")
-
-AccessManager.register_plugins({
-    SomeObject: CompoundPlugin(
-        DjangoAccessPlugin(),
-        ApplyAblePlugin(
-            visible=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())|Q(viewer_groups__in=request.user.groups.all())),
-            changeable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())),
-            deleteable=lambda queryset, request: queryset.filter(Q(editor_group__in=request.user.groups.all())),
-        )
-    ),
-    SomeChild: CompoundPlugin(
-        DjangoAccessPlugin(),
-        ApplyAblePlugin(
-            visible=lambda queryset, request: queryset.filter(Q(is_archived=False)&(Q(parent__editor_group__in=request.user.groups.all())|Q(parent__viewer_gr
-            changeable=lambda queryset, request: queryset.filter(Q(parent__editor_group__in=request.user.groups.all())),
-            deleteable=lambda queryset, request: queryset.filter(Q(is_archived=True) & Q(parent__editor_group__in=request.user.groups.all())),
-        )
-    )
-})
-```
+Code from the example is used in this file to illustrate different details of the package. You can see the original example on the GitHub repository.
