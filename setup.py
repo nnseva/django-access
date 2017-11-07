@@ -16,13 +16,16 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
+with open(path.join(here, 'VERSION'), encoding='utf-8') as f:
+    version = f.read()
+
 setup(
     name='django-access',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.0.1b2',
+    version=version,
 
     description='Django-Access - the application introducing dynamic evaluation-based instance-level (row-level) access rights control for Django',
     long_description=long_description,
