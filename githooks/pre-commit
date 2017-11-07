@@ -15,7 +15,7 @@ else
 	against=4b825dc642cb6eb9a060e54bf8d69288fbee4904
 fi
 
-version=`git describe | sed "s/-/+/"`
+version=`git describe --abbrev=0`
 
 echo "VERSION:" $version >&2
 echo __version__ = \"$version\" >access/__init__.py
