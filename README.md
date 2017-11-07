@@ -47,6 +47,8 @@ We have some number of instance-level (row-level, row-based) access control syst
 
 Such a way, in these packages, we should explicitly, or in the code, assign an access link for every pair of the instance and the user. It is a bit hard work in case of multiple models and lots of users.
 
+The [Django-Rules](https://github.com/dfunckt/django-rules) package introduces an access rules model free to evaluation in runtime, similar to our package. Unfortunately the model of the rules in the package allows to apply rules only to the particular instance of the model, not to the instance set. Such a restriction makes the package principally inefficient when we should apply rules to the arbitrary set of the model instances, as for the visibility calculation.
+
 ### The core package functions
 
 The *Django-Access* package introduces a dynamic evaluation-based instance-level (row-level) access control model. It means, that you can define any custom dynamic, evaluated in the code, rules to control, whether the particular user can access to the particular instance. It is your choice, whether the rule is based on general-purpose relations, common tags, having a direct or indirect relation to some special objects in the database, field values, timing conditions, or anything else.
