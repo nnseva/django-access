@@ -18,6 +18,6 @@ fi
 version=`git describe`
 
 echo "VERSION:" $version >&2
-echo $version >VERSION
+echo __version__=\"$version\" >access/__init__.py
 
 exit 0

@@ -16,8 +16,7 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
-with open(path.join(here, 'VERSION'), encoding='utf-8') as f:
-    version = f.read()
+from access import __version__ as version
 
 setup(
     name='django-access',
@@ -111,10 +110,6 @@ setup(
     # http://docs.python.org/3.4/distutils/setupscript.html#installing-additional-files # noqa
     # In this case, 'data_file' will be installed into '<sys.prefix>/my_data'
     #data_files=[('my_data', ['data/data_file'])],
-    data_files=[
-        ('', ['VERSION']),
-    ]
-
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
