@@ -16,10 +16,31 @@ AccessManager.register_plugins({
             Q(group__in=request.user.groups.all())
         )),
     User:CompoundPlugin(
-        DjangoAccessPlugin(),
+        CheckAblePlugin(
+            appendable=lambda model, request: DjangoAccessPlugin().check_appendable(model, request),
+#            deleteable=lambda model, request: DjangoAccessPlugin().check_deleteable(model, request),
+        ),
         ApplyAblePlugin(
-            changeable=lambda queryset, request: queryset.filter(Q(id=request.user.id)),
-            deleteable=lambda queryset, request: queryset.filter(Q(id=request.user.id)),
+            changeable=lambda queryset, request:
+                queryset.filter(Q(id=request.user.id))
+                    if DjangoAccessPlugin().check_changeable(queryset.model, request) is False
+                    else
+                (
+                    queryset.all()
+                        if request.user.is_superuser
+                        else
+                    queryset.all().exclude(is_superuser=True)
+                ),
+            deleteable=lambda queryset, request:
+                queryset.filter(Q(id=request.user.id))
+                    if DjangoAccessPlugin().check_deleteable(queryset.model, request) is False
+                    else
+                (
+                    queryset.all()
+                        if request.user.is_superuser
+                        else
+                    queryset.all().exclude(is_superuser=True)
+                ),
         )
     ),
     Group:CompoundPlugin(

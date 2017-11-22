@@ -6,15 +6,16 @@ from access.admin import *
 class AccessUserAdmin(AccessControlMixin,UserAdmin):
     list_editable = ['email']
 
-    #def get_readonly_fields(self, request, obj=None):
-    #    readonly_fields = super(AccessUserAdmin, self).get_readonly_fields(request, obj) or []
-    #    if request.user.is_superuser:
-    #        return readonly_fields
-    #    if not obj:
-    #        return readonly_fields
-    #    #if obj.pk != request.user.pk:
-    #    #    return self.get_all_model_fields()
-    #    return list(set(readonly_fields).union(['is_superuser', 'last_login', 'date_joined']))
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super(AccessUserAdmin, self).get_readonly_fields(request, obj) or []
+        if request.user.is_superuser:
+            return readonly_fields
+        if not obj:
+            return readonly_fields
+        if obj.pk != request.user.pk:
+            return list(set(readonly_fields).union(['is_superuser', 'last_login', 'date_joined','password','email']))
+        #    return self.get_all_model_fields()
+        return list(set(readonly_fields).union(['is_superuser', 'last_login', 'date_joined']))
 
     def get_list_display(self, request):
         fields = super(AccessUserAdmin, self).get_list_display(request) or []

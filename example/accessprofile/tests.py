@@ -95,9 +95,9 @@ class DjangoAccessTest(TestBase):
         c = Client()
         c.login(username='another',password='test')
         response = c.get('/admin/auth/')
-        self.assertNotEqual(response.status_code,200)
+        self.assertEqual(response.status_code,200)
         response = c.get('/admin/auth/user/')
-        self.assertNotEqual(response.status_code,200)
+        self.assertEqual(response.status_code,200)
         response = c.get('/admin/auth/group/')
         self.assertNotEqual(response.status_code,200)
 
@@ -145,20 +145,20 @@ class InstanceAccessTest(TestBase):
         self.assertEqual(response.status_code,200)
         response = c.get('/admin/auth/user/%s/change/' % self.user.id)
         self.assertEqual(response.status_code,200)
-        response = c.post('/admin/auth/user/%s/change/' % self.user.id, data={'username':'test2'})
-        self.assertEqual(response.status_code,200)
-        response = c.post('/admin/auth/user/%s/change/' % self.user.id, data={'username':'test'})
-        self.assertEqual(response.status_code,200)
+        response = c.post('/admin/auth/user/%s/change/' % self.user.id, data={'username':'test2','_continue':'continue'})
+        self.assertEqual(response.status_code,302)
+        response = c.post('/admin/auth/user/%s/change/' % self.user.id, data={'username':'test','_continue':'continue'})
+        self.assertEqual(response.status_code,302)
 
     def test_4_check_readonly_instance_permissions(self):
         c = Client()
-        c.login(username='test',password='test')
+        c.login(username='another',password='test')
         response = c.get('/admin/auth/user/')
         self.assertEqual(response.status_code,200)
-        response = c.get('/admin/auth/user/%s/change/' % self.another.id)
+        response = c.get('/admin/auth/user/%s/change/' % self.user.id)
         self.assertEqual(response.status_code,200)
-        response = c.post('/admin/auth/user/%s/change/' % self.another.id, data={'username':'test2'})
-        self.assertNotEqual(response.status_code,200)
+        response = c.post('/admin/auth/user/%s/change/' % self.user.id, data={'username':'test2','_continue':'continue'})
+        self.assertNotEqual(response.status_code,302)
 
     def test_5_check_restricted_filters(self):
         c = Client()
@@ -175,3 +175,46 @@ class InstanceAccessTest(TestBase):
         self.assertEqual(response.status_code,200)
         self.assertRegex(text_type(response.content),r'<option\ value="%s"\ selected[^>]*>%s' % (self.other_group.pk,self.other_group.name))
         self.assertNotRegex(text_type(response.content),r'<option\ value="%s"\ selected[^>]*>%s' % (self.group.pk,self.group.name))
+
+class AuthenticationBackendTest(TestBase):
+    def test_1_check_classic_permissions(self):
+        self.assertEqual(self.user.has_perm("auth.add_user"),True)
+        self.assertEqual(self.user.has_perm("auth.change_user"),True)
+        self.assertEqual(self.user.has_perm("auth.delete_user"),True)
+        self.assertEqual(self.user.has_perm("auth.add_group"),True)
+        self.assertEqual(self.user.has_perm("auth.change_group"),True)
+        self.assertEqual(self.user.has_perm("auth.delete_group"),True)
+
+        self.assertEqual(self.another.has_perm("auth.add_user"),False)
+        self.assertEqual(self.another.has_perm("auth.change_user"),True)
+        self.assertEqual(self.another.has_perm("auth.delete_user"),True)
+        self.assertEqual(self.another.has_perm("auth.add_group"),False)
+        self.assertEqual(self.another.has_perm("auth.change_group"),False)
+        self.assertEqual(self.another.has_perm("auth.delete_group"),False)
+
+        self.assertEqual(self.third.has_perm("auth.add_user"),True)
+        self.assertEqual(self.third.has_perm("auth.change_user"),True)
+        self.assertEqual(self.third.has_perm("auth.delete_user"),True)
+        self.assertEqual(self.third.has_perm("auth.add_group"),True)
+        self.assertEqual(self.third.has_perm("auth.change_group"),True)
+        self.assertEqual(self.third.has_perm("auth.delete_group"),True)
+
+        self.assertEqual(self.fourth.has_perm("auth.add_user"),True)
+        self.assertEqual(self.fourth.has_perm("auth.change_user"),True)
+        self.assertEqual(self.fourth.has_perm("auth.delete_user"),True)
+        self.assertEqual(self.fourth.has_perm("auth.add_group"),False)
+        self.assertEqual(self.fourth.has_perm("auth.change_group"),False)
+        self.assertEqual(self.fourth.has_perm("auth.delete_group"),False)
+
+    def test_2_check_object_permissions(self):
+        self.assertEqual(self.user.has_perm("auth.change_user",self.user),True)
+        self.assertEqual(self.user.has_perm("auth.change_user",self.another),True)
+        self.assertEqual(self.user.has_perm("auth.delete_user",self.another),True)
+
+        self.assertEqual(self.user.has_perm("auth.change_group",self.group),False)
+        self.assertEqual(self.user.has_perm("auth.delete_group",self.group),False)
+
+        self.assertEqual(self.third.has_perm("auth.change_group",self.group),True)
+        self.assertEqual(self.third.has_perm("auth.delete_group",self.group),True)
+        self.assertEqual(self.third.has_perm("auth.change_group",self.other_group),False)
+        self.assertEqual(self.third.has_perm("auth.delete_group",self.other_group),False)

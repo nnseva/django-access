@@ -233,33 +233,53 @@ class CheckApplyPlugin(CompoundPlugin):
         )
 
 
-class DjangoAccessPlugin(CompoundPlugin):
-    def __init__(self):
-        CompoundPlugin.__init__(self,
-            SimpleCheckPlugin(
-                appendable=lambda model, request: bool(request.user.has_perm("%s.add_%s" % (
-                    model._meta.app_label, model._meta.model_name)
-                )),
-                deleteable=lambda model, request: bool(request.user.has_perm("%s.delete_%s" % (
-                    model._meta.app_label, model._meta.model_name)
-                )),
-                changeable=lambda model, request: bool(request.user.has_perm("%s.change_%s" % (
-                    model._meta.app_label, model._meta.model_name)
-                )),
-            ),
-            ApplyAblePlugin(
-                changeable=lambda queryset, request: queryset.all() if request.user.has_perm("%s.change_%s" % (
-                    queryset.model._meta.app_label, queryset.model._meta.model_name)
-                ) else queryset.none(),
-                deleteable=lambda queryset, request: queryset.all() if request.user.has_perm("%s.delete_%s" % (
-                    queryset.model._meta.app_label, queryset.model._meta.model_name)
-                ) else queryset.none(),
+class DjangoAccessPlugin(AccessPluginBase):
+    def _has_p(self, p, model, request):
+        if request.user.is_superuser:
+            return True
+        return bool(
+            request.user.groups.filter(
+                permissions__content_type__app_label=model._meta.app_label,
+                permissions__content_type__model=model._meta.model_name,
+                permissions__codename__startswith='%s_' % p
+            )
+        ) or bool(
+            request.user.user_permissions.filter(
+                content_type__app_label=model._meta.app_label,
+                content_type__model=model._meta.model_name,
+                codename__startswith='%s_' % p
             )
         )
 
+    def _visible(self, model, request):
+        if request.user.is_superuser:
+            return True
+        return bool(
+            request.user.groups.filter(
+                permissions__content_type__app_label=model._meta.app_label,
+                permissions__content_type__model=model._meta.model_name,
+            )
+        ) or bool(
+            request.user.user_permissions.filter(
+                content_type__app_label=model._meta.app_label,
+                content_type__model=model._meta.model_name,
+            )
+        )
+
+    def check_appendable(self, model, request):
+        return {} if self._has_p('add', model, request) else False
+
+    def check_changeable(self, model, request):
+        return {} if self._has_p('change', model, request) else False
+
+    def check_deleteable(self, model, request):
+        return {} if self._has_p('delete', model, request) else False
+
     def check_visible(self, model, request):
-        return not (
-            self.check_appendable(model, request) is False and
-            self.check_changeable(model, request) is False and
-            self.check_deleteable(model, request) is False
-        ) and {}
+        return {} if self._visible(model, request) else False
+
+    def apply_changeable(self, queryset, request):
+        return queryset.all() if self._has_p('change', queryset.model, request) else queryset.none()
+
+    def apply_deleteable(self, queryset, request):
+        return queryset.all() if self._has_p('delete', queryset.model, request) else queryset.none()

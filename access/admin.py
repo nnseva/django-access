@@ -32,6 +32,8 @@ from django.core.exceptions import (
 from django.conf import settings
 from django.utils.six import text_type, string_types
 
+from django.apps import apps
+
 from access.managers import AccessManager
 
 import collections
@@ -196,13 +198,19 @@ class AccessControlMixin(object):
             'delete': self.has_delete_permission(request),
         }
 
+    def has_module_permission(self, request):
+        if self.has_view_permission(request):
+            return True
+        for model in apps.get_app_config(self.model._meta.app_label).get_models():
+            if AccessManager(model).check_visible(model, request) is not False:
+                return True
+        return False
+
     def get_all_model_fields(self):
         return [f.name for f in self.model._meta.get_fields()]
 
     def get_readonly_fields(self, request, obj=None):
         if not obj:
-            return super(AccessControlMixin, self).get_readonly_fields(request)
-        if request.user.is_superuser:
             return super(AccessControlMixin, self).get_readonly_fields(request)
         if not self.has_basic_change_permission(request):
             return self.get_all_model_fields()
@@ -211,8 +219,6 @@ class AccessControlMixin(object):
         return super(AccessControlMixin, self).get_readonly_fields(request)
 
     def save_model(self, request, obj, form, change):
-        if request.user.is_superuser:
-            return super(AccessControlMixin, self).save_model(request, obj, form, change)
         if change and self.has_basic_change_permission(request, obj):
             return super(AccessControlMixin, self).save_model(request, obj, form, change)
         if not change and self.has_add_permission(request):
@@ -231,8 +237,6 @@ class AccessControlMixin(object):
         raise PermissionDenied
 
     def save_related(self, request, form, formsets, change):
-        if request.user.is_superuser:
-            return super(AccessControlMixin, self).save_related(request, form, formsets, change)
         if change and self.has_basic_change_permission(request, form.instance):
             return super(AccessControlMixin, self).save_related(request, form, formsets, change)
         if not change and self.has_add_permission(request):
@@ -375,9 +379,9 @@ class AccessControlMixin(object):
 
             # Collecting forbidden subobjects, compatible with Django or forced by the option
             if STRONG_DELETION_CONTROL or has_admin:
-                manager = AccessManager(obj.__class__)
-                # filter out forbidden items
-                if not request.user.is_superuser:
+                if not obj.__class__._meta.auto_created:
+                    manager = AccessManager(obj.__class__)
+                    # filter out forbidden items
                     if manager.check_deleteable(obj.__class__, request) is False:
                         model_perms_needed.add(opts.verbose_name)
                     if not manager.apply_deleteable(obj.__class__._default_manager.filter(pk=obj.pk), request):
@@ -407,16 +411,15 @@ class AccessControlMixin(object):
             if form.instance:
                 if form.cleaned_data[DELETION_FIELD_NAME]:
                     queryset = form.instance.__class__.objects.filter(pk=form.instance.pk)
-                    if not request.user.is_superuser:
-                        to_delete, model_count, perms_needed, protected = self.get_deleted_objects(request, queryset)
-                        if perms_needed:
-                            raise ValidationError(mark_safe(_("Deleting for the following object types is forbidden: %(perms_needed)s") % {
+                    to_delete, model_count, perms_needed, protected = self.get_deleted_objects(request, queryset)
+                    if perms_needed:
+                        raise ValidationError(mark_safe(_("Deleting for the following object types is forbidden: %(perms_needed)s") % {
                                 'perms_needed': ', '.join(perms_needed)
-                            }))
-                        if protected:
-                            raise ValidationError(mark_safe(_("Deleting the following objects is protected or forbidden: %(protected)s") % {
+                        }))
+                    if protected:
+                        raise ValidationError(mark_safe(_("Deleting the following objects is protected or forbidden: %(protected)s") % {
                                 'protected': ', '.join(protected)
-                            }))
+                        }))
             method = getattr(super(CheckDeleteRightsForm, form), "clean_%s" % DELETION_FIELD_NAME, None)
             if method:
                 return method()
