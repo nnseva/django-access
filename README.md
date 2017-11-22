@@ -174,7 +174,7 @@ admin.site.register(models.Group,AccessGroupAdmin)
 
 You are free to check access to models and instances exactly the same as the *Django-Access* application does it.
 
-Use lightweight *AccessManager* object instances to control access to the particular model and proper call to the plugin registry.
+Use lightweight `AccessManager` object instances to control access to the particular model and proper call to the plugin registry.
 
 For example:
 
@@ -346,9 +346,9 @@ The non-empty dictionary returned from the `check_appendable` method of the plug
 
 Plugin method controlling access to separate model instances is named using an `apply_` prefix. The second part of the name determines an access type to be checked.
 
-Parameters of the method are the `queryset` - a Django QuerySet object to be filtered, and `request` - a Django Request object determining an access context to be controlled. The plugin instance is free to verify, what parts of the request access context are important and should be verified against model instances in the passed QuerySet. Plugins provided by the *Django-Access* package assume that the request contains a `user` field referring a current user, and user instance has an `is_superuser` flag.
+Parameters of the method are the `queryset` - a Django `QuerySet` object to be filtered, and `request` - a Django Request object determining an access context to be controlled. The plugin instance is free to verify, what parts of the request access context are important and should be verified against model instances in the passed `QuerySet`. Plugins provided by the *Django-Access* package assume that the request contains a `user` field referring a current user, and user instance has an `is_superuser` flag.
 
-The return value of the `apply_` access control method is a QuerySet filtered to only allowed instances accordingly to the granted access.
+The return value of the `apply_` access control method is a `QuerySet` filtered to only allowed instances accordingly to the granted access.
 
 ### Base and extended access types
 
@@ -416,9 +416,12 @@ For example:
         )
 ```
 
+## Backward compatibility
+
 ### Backward compatible access rules with *DjangoAccessPlugin*
 
-This plugin defines access rules near to the former Django *Permission* access control system.
+This plugin defines access rules near to the former Django *Permission* access control system provided in the `auth` Django contributed application.
+It checks the permissions set against the current user as it stored in the database.
 
 For example:
 
@@ -438,7 +441,33 @@ For example:
 
 ### Backward compatible deletion control
 
-The `ACCESS_STRONG_DELETION_CONTROL` settings variable (default, backward compatible value is False) controls, whether the restriction to delete is controlled for models not having a separate (not Inline) Admin. If yes, the forbidden instances are included in the set of protected instances when trying to delete from the Admin.
+The `ACCESS_STRONG_DELETION_CONTROL` settings variable (default, backward compatible value is False) controls,
+whether the restriction to delete is controlled for models not having a separate (not Inline) Admin.
+If yes, the forbidden instances are included in the set of protected instances when trying to delete from the Admin.
+
+### Backward compatible authorization backend
+
+You always can redefine third-party package admin classes as described above. It totally avoids using Django authorization
+subsystem by the admin classes. It's enough for the most such packages.
+
+But sometimes the third-party package can use direct calls to the `User` methods checking authorization (`has_perm` most probable).
+Such calls are redirected to the Django authorization subsystem. For such a case use the following settings:
+
+```python
+AUTHENTICATION_BACKENDS = ['access.auth.backends.ModelBackend']
+```
+
+This backend is inherited from the standard Django authentication backend and provides modified methods
+to **authorize** user actions accordingly to custom access rules defined in the project.
+
+***Note*** that the provided backward compatible authentication/authorization backend prevents using advanced features
+of the *Django-Access* package, such as whole request authorization context and instance filtering controlled by access rules.
+Newer use direct `User.has_perm` calls in your own code, use `AccessManager` calls instead.
+
+***Note*** that the Django authorization subsystem checks permissions for the user only, while the *Django-Access* package
+allows checking permissions in the whole request context. So, in case of using this authentication backend,
+your custom access rules should be ready to take a fake request object as a callback parameter instead of real one. The fake
+request object is constructed and passed to the rule with the only `user` property compatible with a real Django request.
 
 ## Compatibility issues
 
@@ -454,9 +483,10 @@ The example project uses `django.contrib.auth` models and also has an own applic
 
 The example is oriented to the following access scheme:
 - The superuser can anything
-- Django Permissions are applied
+- Django Permissions are applied except User
 - The other User record is accessible for reading except e-mail and password
-- The own User record is accessible for writing (except `is_superuser` flag)
+- The other User record is accessible for writing (except `is_superuser` flag and timestamp fields) and deleting if it is not a superuser and Django permissions granted
+- The own User record is accessible for writing (except `is_superuser` flag and timestamp fields)
 - Groups and Permissions are visible only for those Users who have relations to them
 - SomeObject is visible for viewers, and changeable for editors, defined by the related `Group` instances
 
