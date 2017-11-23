@@ -11,6 +11,8 @@ from django.contrib import messages
 from django.template.response import TemplateResponse
 
 from django.contrib.admin.filters import RelatedFieldListFilter
+from django.contrib.admin.utils import flatten_fieldsets
+
 
 from django.utils.translation import ugettext_lazy as _
 
@@ -206,17 +208,22 @@ class AccessControlMixin(object):
                 return True
         return False
 
-    def get_all_model_fields(self):
-        return [f.name for f in self.model._meta.get_fields()]
-
     def get_readonly_fields(self, request, obj=None):
+        if hasattr(request,'--avoid-get_readonly_fields-recursion--'):
+            return super(AccessControlMixin, self).get_readonly_fields(request, obj)
         if not obj:
-            return super(AccessControlMixin, self).get_readonly_fields(request)
+            return super(AccessControlMixin, self).get_readonly_fields(request, obj)
         if not self.has_basic_change_permission(request):
-            return self.get_all_model_fields()
+            setattr(request,'--avoid-get_readonly_fields-recursion--',True)
+            own_fields = flatten_fieldsets(self.get_fieldsets(request, obj))
+            delattr(request,'--avoid-get_readonly_fields-recursion--')
+            return list(set(super(AccessControlMixin, self).get_readonly_fields(request, obj)).union(own_fields))
         if not self.has_basic_change_permission(request, obj):
-            return self.get_all_model_fields()
-        return super(AccessControlMixin, self).get_readonly_fields(request)
+            setattr(request,'--avoid-get_readonly_fields-recursion--',True)
+            own_fields = flatten_fieldsets(self.get_fieldsets(request, obj))
+            delattr(request,'--avoid-get_readonly_fields-recursion--')
+            return list(set(super(AccessControlMixin, self).get_readonly_fields(request, obj)).union(own_fields))
+        return super(AccessControlMixin, self).get_readonly_fields(request, obj)
 
     def save_model(self, request, obj, form, change):
         if change and self.has_basic_change_permission(request, obj):
