@@ -209,19 +209,19 @@ class AccessControlMixin(object):
         return False
 
     def get_readonly_fields(self, request, obj=None):
-        if hasattr(request,'--avoid-get_readonly_fields-recursion--'):
+        if hasattr(request, '--avoid-get_readonly_fields-recursion--'):
             return super(AccessControlMixin, self).get_readonly_fields(request, obj)
         if not obj:
             return super(AccessControlMixin, self).get_readonly_fields(request, obj)
         if not self.has_basic_change_permission(request):
-            setattr(request,'--avoid-get_readonly_fields-recursion--',True)
+            setattr(request, '--avoid-get_readonly_fields-recursion--', True)
             own_fields = flatten_fieldsets(self.get_fieldsets(request, obj))
-            delattr(request,'--avoid-get_readonly_fields-recursion--')
+            delattr(request, '--avoid-get_readonly_fields-recursion--')
             return list(set(super(AccessControlMixin, self).get_readonly_fields(request, obj)).union(own_fields))
         if not self.has_basic_change_permission(request, obj):
-            setattr(request,'--avoid-get_readonly_fields-recursion--',True)
+            setattr(request, '--avoid-get_readonly_fields-recursion--', True)
             own_fields = flatten_fieldsets(self.get_fieldsets(request, obj))
-            delattr(request,'--avoid-get_readonly_fields-recursion--')
+            delattr(request, '--avoid-get_readonly_fields-recursion--')
             return list(set(super(AccessControlMixin, self).get_readonly_fields(request, obj)).union(own_fields))
         return super(AccessControlMixin, self).get_readonly_fields(request, obj)
 
