@@ -234,20 +234,20 @@ class CheckApplyPlugin(CompoundPlugin):
 
 
 class DjangoAccessPlugin(AccessPluginBase):
-    def _has_p(self, p, model, request):
+    def _has_a(self, a, model, request):
         if request.user.is_superuser:
             return True
         return bool(
             request.user.groups.filter(
                 permissions__content_type__app_label=model._meta.app_label,
                 permissions__content_type__model=model._meta.model_name,
-                permissions__codename__startswith='%s_' % p
+                permissions__codename=a
             )
         ) or bool(
             request.user.user_permissions.filter(
                 content_type__app_label=model._meta.app_label,
                 content_type__model=model._meta.model_name,
-                codename__startswith='%s_' % p
+                codename=a
             )
         )
 
@@ -267,19 +267,40 @@ class DjangoAccessPlugin(AccessPluginBase):
         )
 
     def check_appendable(self, model, request):
-        return {} if self._has_p('add', model, request) else False
+        return {} if self._has_a('add_%s' % model._meta.model_name, model, request) else False
 
     def check_changeable(self, model, request):
-        return {} if self._has_p('change', model, request) else False
+        return {} if self._has_a('change_%s' % model._meta.model_name, model, request) else False
 
     def check_deleteable(self, model, request):
-        return {} if self._has_p('delete', model, request) else False
+        return {} if self._has_a('delete_%s' % model._meta.model_name, model, request) else False
 
     def check_visible(self, model, request):
         return {} if self._visible(model, request) else False
 
+    def apply_visible(self, queryset, request):
+        return queryset.all()
+
     def apply_changeable(self, queryset, request):
-        return queryset.all() if self._has_p('change', queryset.model, request) else queryset.none()
+        return queryset.all() if self._has_a('change_%s' % queryset.model._meta.model_name, queryset.model, request) else queryset.none()
 
     def apply_deleteable(self, queryset, request):
-        return queryset.all() if self._has_p('delete', queryset.model, request) else queryset.none()
+        return queryset.all() if self._has_a('delete_%s' % queryset.model._meta.model_name, queryset.model, request) else queryset.none()
+
+    def __getattr__(self, name):
+        prefix = 'apply_'
+        if name.startswith(prefix):
+            ability = name[len(prefix):]
+
+            def method(queryset, request):
+                return queryset.all() if self._has_a(ability, queryset.model, request) else queryset.none()
+            return method
+
+        prefix = 'check_'
+        if name.startswith(prefix):
+            ability = name[len(prefix):]
+
+            def method(model, request):
+                return {} if self._has_a(ability, model, request) else False
+            return method
+        raise AttributeError(name)

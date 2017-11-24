@@ -27,6 +27,7 @@ class TestBase(TestCase):
         from django.contrib import auth
         from django.contrib.contenttypes.models import ContentType
         from django.db.models import Model
+        from someapp.models import SomeObject, SomeChild
 
         self.user = User.objects.create(username="test",is_active=True,is_staff=True)
         self.user.set_password("test")
@@ -44,6 +45,12 @@ class TestBase(TestCase):
         self.group.save()
         self.other_group = Group.objects.create(name="other")
         self.other_group.save()
+        self.some = SomeObject.objects.create(name='some',editor_group=self.group)
+        self.user.user_permissions.add(Permission.objects.get(codename='one'))
+        self.user.user_permissions.add(Permission.objects.get(codename='two'))
+        self.user.user_permissions.add(Permission.objects.get(codename='two_two'))
+        self.user.user_permissions.add(Permission.objects.get(codename='three_someobject'))
+        self.user.user_permissions.add(Permission.objects.get(codename='four_some_object'))
 
         for cn in dir(auth.models):
             c = getattr(auth.models,cn)
@@ -218,3 +225,20 @@ class AuthenticationBackendTest(TestBase):
         self.assertEqual(self.third.has_perm("auth.delete_group",self.group),True)
         self.assertEqual(self.third.has_perm("auth.change_group",self.other_group),False)
         self.assertEqual(self.third.has_perm("auth.delete_group",self.other_group),False)
+
+    def test_3_check_custom_permissions(self):
+        self.assertEqual(self.user.has_perm("someapp.one"),True)
+        self.assertEqual(self.user.has_perm("someapp.two"),True)
+        self.assertEqual(self.user.has_perm("someapp.two_two"),True)
+        self.assertEqual(self.user.has_perm("someapp.three"),False)
+        self.assertEqual(self.user.has_perm("someapp.three_someobject"),True)
+        self.assertEqual(self.user.has_perm("someapp.three_someobject",self.some),True)
+        self.assertEqual(self.user.has_perm("someapp.four_some_object"),True)
+
+        self.assertEqual(self.another.has_perm("someapp.one"),False)
+        self.assertEqual(self.another.has_perm("someapp.two"),False)
+        self.assertEqual(self.another.has_perm("someapp.two_two"),False)
+        self.assertEqual(self.another.has_perm("someapp.three"),False)
+        self.assertEqual(self.another.has_perm("someapp.three_someobject"),False)
+        self.assertEqual(self.another.has_perm("someapp.three_someobject",self.some),False)
+        self.assertEqual(self.another.has_perm("someapp.four_some_object"),False)

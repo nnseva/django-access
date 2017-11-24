@@ -23,6 +23,14 @@ class SomeObject(Model):
     class Meta:
         verbose_name = _("Some Object")
         verbose_name_plural = _("Some Objects")
+        permissions = (
+            ('one','one'),
+            ('two','two'),
+            ('two_two','two two'),
+            ('three_someobject','three'),
+            ('four_some_object','four'),
+        )
+
 
 class SomeChild(Model):
     parent = models.ForeignKey(SomeObject,verbose_name=_("Parent"), related_name='children')

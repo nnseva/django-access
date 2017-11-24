@@ -1,7 +1,12 @@
 from django.contrib.auth.backends import ModelBackend as ModelBackendBase
+from django.contrib.auth.models import Permission
+
 from django.apps import apps
 
 from access.managers import AccessManager
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class FakeRequest(object):
@@ -14,7 +19,6 @@ class ModelBackend(ModelBackendBase):
         "add": "appendable",
         "change": "changeable",
         "delete": "deleteable",
-        "view": "visible",
     }
 
     FakeRequest = FakeRequest
@@ -30,20 +34,27 @@ class ModelBackend(ModelBackendBase):
             return False
         p = perm.split('.')
         if not len(p) == 2:
-            return super(ModelBackend, self).has_perm(user, perm, obj=obj)
-        app_label, p = p
-        p = p.split('_', 1)
+            return False
+        app_label, codename = p
+        try:
+            permission = Permission.objects.get(content_type__app_label=app_label, codename=codename)
+        except Permission.DoesNotExist:
+            return False
+        model = permission.content_type.model_class()
+        p = codename.split('_', 1)
         if not len(p) == 2:
-            return super(ModelBackend, self).has_perm(user, perm, obj=obj)
+            return self.has_ability(user, model, codename, obj)
         right, model_name = p
-        model = self.get_model(app_label, model_name)
-        if not model:
-            return super(ModelBackend, self).has_perm(user, perm, obj=obj)
-        ability = self.PERM_ABILITY.get(right, right)
+        if right not in self.PERM_ABILITY:
+            return self.has_ability(user, model, codename, obj)
+        if model_name != model._meta.model_name:
+            return self.has_ability(user, model, codename, obj)
+        ability = self.PERM_ABILITY[right]
+        return self.has_ability(user, model, ability, obj)
+
+    def has_ability(self, user, model, ability, obj=None):
         manager = AccessManager(model)
-        if obj:
-            if not isinstance(obj, model):
-                return super(ModelBackend, self).has_perm(user, perm, obj=obj)
+        if obj and isinstance(obj, model):
             apply = getattr(manager, "apply_%s" % ability)
             return bool(apply(model.objects.filter(pk=obj.pk), self.FakeRequest(self, user)))
         check = getattr(manager, "check_%s" % ability)
@@ -58,9 +69,9 @@ class ModelBackend(ModelBackendBase):
         return False
 
     def get_all_permissions(self, user, obj=None):
-        # is not used anyway
+        logger.warning("The get_all_permissions is DEPRECATED here and always returns empty set!!!")
         return set()
 
     def get_group_permissions(self, user, obj=None):
-        # is not used anyway
+        logger.warning("The get_group_permissions is DEPRECATED here and always returns empty set!!!")
         return set()
