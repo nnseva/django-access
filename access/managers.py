@@ -1,5 +1,8 @@
 from django.db.models import Model
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class AccessManager(object):
     '''
@@ -19,6 +22,7 @@ class AccessManager(object):
     and deleteable calls.
     '''
     plugins = {}
+    default_plugins = {}
 
     @classmethod
     def register_plugins(cls, plugins):
@@ -37,6 +41,7 @@ class AccessManager(object):
 
         The only one plugin can be registered. If you want to combine plugins, use CompoundPlugin.
         '''
+        logger.info("Plugin registered for %s: %s", model, plugin)
         cls.plugins[model] = plugin
 
     @classmethod
@@ -54,6 +59,7 @@ class AccessManager(object):
         '''
         Unreguster a plugin for the model.
         '''
+        logger.info("Plugin unregistered for %s", model)
         del cls.plugins[model]
 
     @classmethod
@@ -64,17 +70,21 @@ class AccessManager(object):
         from importlib import import_module
         from django.conf import settings
         default_plugin = getattr(settings, 'ACCESS_DEFAULT_PLUGIN', "access.plugins.DjangoAccessPlugin")
-        path = default_plugin.split('.')
-        plugin_path = '.'.join(path[:-1])
-        plugin_name = path[-1]
-        DefaultPlugin = getattr(import_module(plugin_path), plugin_name)
-        return DefaultPlugin()
+        if not default_plugin in cls.default_plugins:
+            logger.info("Creating a default plugin: %s", default_plugin)
+            path = default_plugin.split('.')
+            plugin_path = '.'.join(path[:-1])
+            plugin_name = path[-1]
+            DefaultPlugin = getattr(import_module(plugin_path), plugin_name)
+            cls.default_plugins[default_plugin] = DefaultPlugin()
+        return cls.default_plugins[default_plugin]
 
     @classmethod
     def plugin_for(cls, model):
         '''
         Find and return a plugin for this model. Uses inheritance to find a model where the plugin is registered.
         '''
+        logger.debug("Getting a plugin for: %s", model)
         if not issubclass(model, Model):
             return
         if model in cls.plugins:
@@ -115,7 +125,9 @@ class AccessManager(object):
         if not hasattr(p, 'apply_%s' % ability):
             p = self.get_default_plugin()
         if not hasattr(p, 'apply_%s' % ability):
+            logger.debug("Appy ability %s not found for %s", ability, queryset.model)
             return queryset
+        logger.debug("Apply ability %s is checking for %s", ability, queryset.model)
         m = getattr(p, 'apply_%s' % ability)
         return m(queryset, request)
 
@@ -151,7 +163,9 @@ class AccessManager(object):
         if not hasattr(p, 'check_%s' % ability):
             p = self.get_default_plugin()
         if not hasattr(p, 'check_%s' % ability):
+            logger.debug("Check ability %s not found for %s", ability, model)
             return {}
+        logger.debug("Check ability %s is checking for %s", ability, model)
         m = getattr(p, 'check_%s' % ability)
         return m(model, request)
 
