@@ -70,7 +70,7 @@ class AccessManager(object):
         from importlib import import_module
         from django.conf import settings
         default_plugin = getattr(settings, 'ACCESS_DEFAULT_PLUGIN', "access.plugins.DjangoAccessPlugin")
-        if not default_plugin in cls.default_plugins:
+        if default_plugin not in cls.default_plugins:
             logger.info("Creating a default plugin: %s", default_plugin)
             path = default_plugin.split('.')
             plugin_path = '.'.join(path[:-1])
