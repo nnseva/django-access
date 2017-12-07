@@ -188,18 +188,6 @@ class AccessControlMixin(object):
             return bool(manager.apply_visible(obj.__class__.objects.filter(id=obj.id), request))
         return True
 
-    def get_model_perms(self, request):
-        """
-        Returns a dict of all perms for this model. This dict has the keys
-        ``add``, ``change``, and ``delete`` mapping to the True/False for each
-        of those actions.
-        """
-        return {
-            'add': self.has_add_permission(request),
-            'change': self.has_change_permission(request),
-            'delete': self.has_delete_permission(request),
-        }
-
     def has_module_permission(self, request):
         if self.has_view_permission(request):
             return True
