@@ -497,3 +497,5 @@ Code from the example is used in this file to illustrate different details of th
 ## See also
 
 The [Django-Access-Tastypie](https://github.com/nnseva/django-access-tastypie) package introduces an authorization backend for the [Django-Tastypie package](https://django-tastypie.readthedocs.io/en/latest/) to use access rules defined here.
+
+The [Django-Access-Select2](https://github.com/nnseva/django-access-select2) package provides a filtering for the [Django-Select2](http://django-select2.readthedocs.io/en/latest/) package to use access rules defined here.
