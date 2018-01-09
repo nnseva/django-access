@@ -22,6 +22,8 @@ from django.utils.html import format_html
 from django.urls import NoReverseMatch, reverse
 from django.utils.safestring import mark_safe
 
+from django.http import HttpResponseRedirect
+
 from django.forms.formsets import DELETION_FIELD_NAME
 
 from django.db import transaction
@@ -264,7 +266,11 @@ class AccessControlMixin(object):
     def delete_view(self, request, object_id, extra_context=None):
         "The 'delete' admin view for this model."
         queryset = self.model._default_manager.filter(pk=object_id)
-        return self.delete_selected(request, queryset)
+        response = self.delete_selected(request, queryset)
+        if response:
+            return response
+        url = reverse('admin:%s_%s_changelist' % (self.model._meta.app_label, self.model._meta.model_name))
+        return HttpResponseRedirect(url)
 
     def delete_selected(self, request, queryset):
         '''

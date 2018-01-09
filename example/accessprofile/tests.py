@@ -183,6 +183,14 @@ class InstanceAccessTest(TestBase):
         self.assertRegex(text_type(response.content),r'<option\ value="%s"\ selected[^>]*>%s' % (self.other_group.pk,self.other_group.name))
         self.assertNotRegex(text_type(response.content),r'<option\ value="%s"\ selected[^>]*>%s' % (self.group.pk,self.group.name))
 
+    def test_7_check_delete_view(self):
+        c = Client()
+        c.login(username='fourth',password='test')
+        response = c.get('/admin/auth/user/%s/delete/' % self.fourth.pk)
+        self.assertEqual(response.status_code,200)
+        response = c.post('/admin/auth/user/%s/delete/' % self.fourth.pk, data={'_selected_action':self.fourth.pk,'action':'delete_selected','post':'yes'})
+        self.assertEqual(response.status_code,302)
+
 class AuthenticationBackendTest(TestBase):
     def test_1_check_classic_permissions(self):
         self.assertEqual(self.user.has_perm("auth.add_user"),True)
