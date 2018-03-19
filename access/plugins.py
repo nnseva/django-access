@@ -233,7 +233,7 @@ class CheckApplyPlugin(CompoundPlugin):
         )
 
 
-class DjangoAccessPlugin(AccessPluginBase):
+class DjangoChangeAccessPlugin(AccessPluginBase):
     def _has_a(self, a, model, request):
         if request.user.is_superuser:
             return True
@@ -251,21 +251,6 @@ class DjangoAccessPlugin(AccessPluginBase):
             )
         )
 
-    def _visible(self, model, request):
-        if request.user.is_superuser:
-            return True
-        return bool(
-            request.user.groups.filter(
-                permissions__content_type__app_label=model._meta.app_label,
-                permissions__content_type__model=model._meta.model_name,
-            )
-        ) or bool(
-            request.user.user_permissions.filter(
-                content_type__app_label=model._meta.app_label,
-                content_type__model=model._meta.model_name,
-            )
-        )
-
     def check_appendable(self, model, request):
         return {} if self._has_a('add_%s' % model._meta.model_name, model, request) else False
 
@@ -276,7 +261,7 @@ class DjangoAccessPlugin(AccessPluginBase):
         return {} if self._has_a('delete_%s' % model._meta.model_name, model, request) else False
 
     def check_visible(self, model, request):
-        return {} if self._visible(model, request) else False
+        return {}
 
     def apply_visible(self, queryset, request):
         return queryset.all()
@@ -304,3 +289,23 @@ class DjangoAccessPlugin(AccessPluginBase):
                 return {} if self._has_a(ability, model, request) else False
             return method
         raise AttributeError(name)
+
+
+class DjangoAccessPlugin(DjangoChangeAccessPlugin):
+    def _visible(self, model, request):
+        if request.user.is_superuser:
+            return True
+        return bool(
+            request.user.groups.filter(
+                permissions__content_type__app_label=model._meta.app_label,
+                permissions__content_type__model=model._meta.model_name,
+            )
+        ) or bool(
+            request.user.user_permissions.filter(
+                content_type__app_label=model._meta.app_label,
+                content_type__model=model._meta.model_name,
+            )
+        )
+
+    def check_visible(self, model, request):
+        return {} if self._visible(model, request) else False
