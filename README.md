@@ -471,7 +471,18 @@ request object is constructed and passed to the rule with the only `user` proper
 
 ## Compatibility issues
 
-The package has been developed and tested against Django v.1.10 and v.1.11.
+The package has been developed and tested against:
+
+- Python 2.7
+    - Django v.1.10
+    - Django v.1.11
+- Python 3.6
+    - Django v.1.10
+    - Django v.1.11
+    - Django v.2.0
+    - Django v.2.1
+
+It also can be compatible with other versions and combinations, but not obviously
 
 ## Examples
 
