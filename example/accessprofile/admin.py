@@ -1,10 +1,21 @@
 from django.contrib import admin
 from django.contrib.auth import models
+from django.contrib.auth import forms
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from access.admin import *
 
+class UserChangeForm(forms.UserChangeForm):
+    def __init__(self, *args, **kwargs):
+        super(forms.UserChangeForm, self).__init__(*args, **kwargs)  # HACK! skip and replace parent's init
+        f = self.fields.get('user_permissions')
+        if f is not None:
+            f.queryset = f.queryset.select_related('content_type')
+
+
 class AccessUserAdmin(AccessControlMixin,UserAdmin):
     list_editable = ['email']
+
+    form = UserChangeForm
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = super(AccessUserAdmin, self).get_readonly_fields(request, obj) or []
@@ -48,6 +59,16 @@ class AccessUserAdmin(AccessControlMixin,UserAdmin):
         if obj.pk != request.user.pk:
             return self._fieldsets_exclude(fieldsets,['password', 'email'])
         return self._fieldsets_exclude(fieldsets,['is_superuser'])
+
+    def get_fields(self, request, obj=None):
+        fields = list(super(AccessUserAdmin, self).get_fields(request, obj)) or []
+        if request.user.is_superuser:
+            return fields
+        if not obj:
+            return fields
+        if obj.pk != request.user.pk:
+            return list(set(fields).difference(['password','email']))
+        return list(set(fields).difference(['is_superuser']))
 
 class AccessGroupAdmin(AccessControlMixin,GroupAdmin):
     pass

@@ -43,21 +43,32 @@ from access.managers import AccessManager
 import collections
 
 
+def _get_field_rel_model(field):
+    import django
+    from django.db import models
+    if isinstance(field, (models.ForeignKey, models.ManyToManyField)):
+        if django.VERSION >= (2, 0):
+            return field.remote_field.model
+        return field.rel.to
+
+
 class RelatedFieldVisibleListFilter(RelatedFieldListFilter):
     def field_choices(self, field, request, model_admin):
-        if not hasattr(field, 'rel'):
+        model = _get_field_rel_model(field)
+        if not model:
             return [l for l in super(RelatedFieldVisibleListFilter, self).field_choices(field, request, model_admin)]
         else:
-            q = field.rel.to.objects.all()
-            return [(o.pk, text_type(o)) for o in AccessManager(field.rel.to).apply_visible(q, request).distinct()]
+            q = model.objects.all()
+            return [(o.pk, text_type(o)) for o in AccessManager(model).apply_visible(q, request).distinct()]
 
 
 class RelatedFieldPresentListFilter(RelatedFieldListFilter):
     def field_choices(self, field, request, model_admin):
-        if not hasattr(field, 'rel'):
+        model = _get_field_rel_model(field)
+        if not model:
             return [l for l in super(RelatedFieldPresentListFilter, self).field_choices(field, request, model_admin)]
         else:
-            q = field.rel.to.objects.filter(
+            q = model.objects.filter(
                 pk__in=model_admin.get_queryset(request).values(self.field_path)
             ).distinct()
             return [(o.pk, text_type(o)) for o in q]
@@ -68,13 +79,13 @@ class NoListEditableChangeList(ChangeList):
         request, model, list_display,
         list_display_links, list_filter, date_hierarchy,
         search_fields, list_select_related, list_per_page,
-        list_max_show_all, list_editable, admin
+        list_max_show_all, list_editable, *args
     ):
         super(NoListEditableChangeList, self).__init__(
             request, model, list_display,
             list_display_links, list_filter, date_hierarchy,
             search_fields, list_select_related, list_per_page,
-            list_max_show_all, None, admin
+            list_max_show_all, None, *args
         )
 
 
@@ -104,7 +115,7 @@ class AccessControlMixin(object):
 
     def get_filter_for_field(self, f, request):
         field = get_fields_from_path(self.model, f)[-1]
-        if hasattr(field, 'rel') and hasattr(field.rel, 'to'):
+        if hasattr(field, 'rel') and hasattr(field.rel, 'to') or hasattr(field, 'remote_field') and hasattr(field.remote_field, 'model'):
             present_list_filter_fields = getattr(self, 'present_list_filter_fields', [])
             if f in present_list_filter_fields:
                 return RelatedFieldPresentListFilter
@@ -123,6 +134,7 @@ class AccessControlMixin(object):
                 else:
                     filters.append(f)
             return filters
+        return []
 
     def get_queryset(self, request):
         return AccessManager(self.model).visible(request)
@@ -130,7 +142,8 @@ class AccessControlMixin(object):
     def get_field_queryset(self, db, db_field, request):
         # NOTE!!! Undocumented and may be changed in future versions!
         qs = super(AccessControlMixin, self).get_field_queryset(db, db_field, request)
-        manager = AccessManager(db_field.rel.to)
+        model = _get_field_rel_model(db_field)
+        manager = AccessManager(model)
         if qs is None:
             qs = manager.get_queryset()
         return manager.apply_visible(qs, request)

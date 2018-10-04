@@ -13,12 +13,15 @@ from access.managers import AccessManager
 # Create your models here.
 
 class SomeObject(Model):
-    editor_group = models.ForeignKey(Group,verbose_name=_("Editor Group"), related_name='changeable_objects')
-    viewer_groups = models.ManyToManyField(Group,verbose_name=_("Viewer Groups"), blank=True, related_name='visible_objects')
-    name = models.CharField(max_length=80,verbose_name=_("Name"))
+    editor_group = models.ForeignKey(Group, on_delete=models.CASCADE, verbose_name=_("Editor Group"), related_name='changeable_objects')
+    viewer_groups = models.ManyToManyField(Group, verbose_name=_("Viewer Groups"), blank=True, related_name='visible_objects')
+    name = models.CharField(max_length=80, verbose_name=_("Name"))
 
     def __unicode__(self):
         return _("Object: %s") % self.name
+
+    def __str__(self):
+        return self.__unicode__()
 
     class Meta:
         verbose_name = _("Some Object")
@@ -33,14 +36,17 @@ class SomeObject(Model):
 
 
 class SomeChild(Model):
-    parent = models.ForeignKey(SomeObject,verbose_name=_("Parent"), related_name='children')
-    name = models.CharField(max_length=80,verbose_name=_("Name"))
-    is_archived = models.BooleanField(verbose_name=_("Is Archived"),default=False)
+    parent = models.ForeignKey(SomeObject, on_delete=models.CASCADE, verbose_name=_("Parent"), related_name='children')
+    name = models.CharField(max_length=80, verbose_name=_("Name"))
+    is_archived = models.BooleanField(verbose_name=_("Is Archived"), default=False)
 
     def __unicode__(self):
         if self.is_archived:
             return _("Child: %s (archived)") % self.name
         return _("Child: %s") % self.name
+
+    def __str__(self):
+        return self.__unicode__()
 
     class Meta:
         verbose_name = _("Some Child")
