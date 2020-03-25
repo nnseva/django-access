@@ -2,11 +2,11 @@ language: python
 matrix:
     include:
         - python: 2.7
-          env: TOXENV=py27--django{1.10,1.11},flake8
+          env: TOXENV="py27--django{1.10,1.11}",flake8
         - python: 3.6
-          env: TOXENV=py36--django{1.10,1.11,2.0,2.1,2.2,3.0}
+          env: TOXENV="py36--django{1.10,1.11,2.0,2.1,2.2,3.0}"
         - python: 3.7
-          env: TOXENV=py37--django{2.0,2.1,2.2,3.0}
+          env: TOXENV="py37--django{2.0,2.1,2.2,3.0}"
 install:
   - pip install tox
 script:
