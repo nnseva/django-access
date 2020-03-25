@@ -34,7 +34,7 @@ from django.core.exceptions import (
 )
 
 from django.conf import settings
-from django.utils.six import text_type, string_types
+from six import text_type, string_types
 
 from django.apps import apps
 
@@ -169,7 +169,8 @@ class AccessControlMixin(object):
             return NoListEditableChangeList
         return ChangeList
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request, *av, **kw):
+        # TODO: for Django 3.0 the *av = [obj] where the obj is a parent object
         r = AccessManager(self.model).appendable(request) is not False
         return r
 

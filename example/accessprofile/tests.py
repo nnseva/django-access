@@ -13,7 +13,7 @@ from django.core.exceptions import ValidationError
 
 import logging
 
-from django.utils.six import text_type, string_types
+from six import text_type, string_types
 
 class TestCase(_TestCase):
     if not hasattr(_TestCase,'assertRegex'):

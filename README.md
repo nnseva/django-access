@@ -481,6 +481,8 @@ The package has been developed and tested against:
     - Django v.1.11
     - Django v.2.0
     - Django v.2.1
+    - Django v.2.2
+    - Django v.3.0
 
 It also can be compatible with other versions and combinations, but not obviously
 

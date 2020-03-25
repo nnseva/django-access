@@ -12,6 +12,13 @@ class UserChangeForm(forms.UserChangeForm):
             f.queryset = f.queryset.select_related('content_type')
 
 
+def list_union(l1, l2):
+    return l1 + [l for l in l2 if not l in l1]
+
+def list_diff(l1, l2):
+    return [l for l in l1 if not l in l2]
+
+
 class AccessUserAdmin(AccessControlMixin,UserAdmin):
     list_editable = ['email']
 
@@ -24,15 +31,15 @@ class AccessUserAdmin(AccessControlMixin,UserAdmin):
         if not obj:
             return readonly_fields
         if obj.pk != request.user.pk:
-            return list(set(readonly_fields).union(['is_superuser', 'last_login', 'date_joined','password','email']))
+            return list_union(readonly_fields, ['is_superuser', 'last_login', 'date_joined','password','email'])
         #    return self.get_all_model_fields()
-        return list(set(readonly_fields).union(['is_superuser', 'last_login', 'date_joined']))
+        return list_union(readonly_fields, ['is_superuser', 'last_login', 'date_joined'])
 
     def get_list_display(self, request):
         fields = super(AccessUserAdmin, self).get_list_display(request) or []
         if request.user.is_superuser:
             return fields
-        return list(set(fields).difference(['password','email']))
+        return list_diff(fields, ['password','email'])
 
     def _fieldsets_exclude(self,fieldsets,exclude):
         ret = []
@@ -67,7 +74,7 @@ class AccessUserAdmin(AccessControlMixin,UserAdmin):
         if not obj:
             return fields
         if obj.pk != request.user.pk:
-            return list(set(fields).difference(['password','email']))
+            return list_diff(fields, ['password','email'])
         return list(set(fields).difference(['is_superuser']))
 
 class AccessGroupAdmin(AccessControlMixin,GroupAdmin):
