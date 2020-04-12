@@ -43,6 +43,11 @@ from access.managers import AccessManager
 import collections
 
 
+def list_union(l1, l2):
+    l1_set = set(l1)
+    return list(l1) + [l for l in l2 if l not in l1_set]
+
+
 def _get_field_rel_model(field):
     import django
     from django.db import models
@@ -221,12 +226,12 @@ class AccessControlMixin(object):
             setattr(request, '--avoid-get_readonly_fields-recursion--', True)
             own_fields = flatten_fieldsets(self.get_fieldsets(request, obj))
             delattr(request, '--avoid-get_readonly_fields-recursion--')
-            return list(set(super(AccessControlMixin, self).get_readonly_fields(request, obj)).union(own_fields))
+            return list_union(super(AccessControlMixin, self).get_readonly_fields(request, obj), own_fields)
         if not self.has_basic_change_permission(request, obj):
             setattr(request, '--avoid-get_readonly_fields-recursion--', True)
             own_fields = flatten_fieldsets(self.get_fieldsets(request, obj))
             delattr(request, '--avoid-get_readonly_fields-recursion--')
-            return list(set(super(AccessControlMixin, self).get_readonly_fields(request, obj)).union(own_fields))
+            return list_union(super(AccessControlMixin, self).get_readonly_fields(request, obj), own_fields)
         return super(AccessControlMixin, self).get_readonly_fields(request, obj)
 
     def save_model(self, request, obj, form, change):
