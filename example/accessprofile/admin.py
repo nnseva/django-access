@@ -10,6 +10,9 @@ class UserChangeForm(forms.UserChangeForm):
         f = self.fields.get('user_permissions')
         if f is not None:
             f.queryset = f.queryset.select_related('content_type')
+        password = self.fields.get('password')
+        if password and '{}' in password.help_text:
+            password.help_text = password.help_text.format('../password/')
 
 
 def list_union(l1, l2):

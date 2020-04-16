@@ -118,7 +118,16 @@ class DjangoAccessTest(TestBase):
         response = c.get('/admin/auth/group/')
         self.assertEqual(response.status_code,200)
 
-    def test_3_check_allowed_django_group_permissions(self):
+    def test_3_check_django_user_password_change_ref(self):
+        c = Client()
+        c.login(username='test',password='test')
+        response = c.get('/admin/auth/')
+        self.assertEqual(response.status_code,200)
+        response = c.get('/admin/auth/user/%s/change/' % self.user.id)
+        self.assertEqual(response.status_code,200)
+        self.assertRegex(text_type(response.content),r'class\=\"help\"\>.*\<a\ href\=\"\.\.\/password\/\".*\</a\>\.')
+
+    def test_4_check_allowed_django_group_permissions(self):
         c = Client()
         c.login(username='third',password='test')
         response = c.get('/admin/auth/')

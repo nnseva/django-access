@@ -3,14 +3,19 @@ from access.admin import *
 
 from someapp.models import *
 
-class ChildAdmin(AccessTabularInline):
+class ChildInline(AccessTabularInline):
     model = SomeChild
 
 # Register your models here.
 class ObjectAdmin(AccessModelAdmin):
     inlines = [
-        ChildAdmin,
+        ChildInline,
     ]
 
 # Register your models here.
 admin.site.register(SomeObject,ObjectAdmin)
+
+class ChildAdmin(AccessModelAdmin):
+    pass
+
+admin.site.register(SomeChild,ChildAdmin)
