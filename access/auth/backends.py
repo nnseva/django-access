@@ -16,6 +16,7 @@ class FakeRequest(object):
 
 class ModelBackend(ModelBackendBase):
     PERM_ABILITY = {
+        "view": "visible",
         "add": "appendable",
         "change": "changeable",
         "delete": "deleteable",
@@ -57,14 +58,14 @@ class ModelBackend(ModelBackendBase):
         if obj and isinstance(obj, model):
             apply = getattr(manager, "apply_%s" % ability)
             return bool(apply(model.objects.filter(pk=obj.pk), self.FakeRequest(self, user)))
-        check = getattr(manager, "check_%s" % ability)
-        return check(model, self.FakeRequest(self, user)) is not False
+        verify = getattr(manager, "verify_%s" % ability)
+        return verify(model, self.FakeRequest(self, user))
 
     def has_module_perms(self, user, app_label):
         models = self.get_models(app_label)
         for model in models:
             manager = AccessManager(model)
-            if manager.check_visible(model, self.FakeRequest(self, user)):
+            if manager.verify_visible(model, self.FakeRequest(self, user)):
                 return True
         return False
 

@@ -1,10 +1,17 @@
+import traceback
+
+import logging
+logger = logging.getLogger(__name__)
+
+
 class AccessPluginBase(object):
     '''
     This base class is defined to be used as a base class for all
     access plugins. The plugin may contain two kinds of callbacks:
 
     - `apply_somethingable`
-    - `check_somethingable`
+    - `verify_somethingable`
+    - The `check_somethingable` is deprecated
 
     The `apply_somethingable` is called every time when the system requests `somethingable`
     ability for some subset of instances determined by the queryset. The return value of
@@ -25,22 +32,20 @@ class AccessPluginBase(object):
     - changeable
     - deleteable
 
-    The `check_somethingable` is called every time when the system requests `somethingable`
-    ability for a model as a whole. The return value of the `check_somethingable` should be
-    a False value if the requested ability is not allowed to the requestor. Any other value
-    including `None` means allowed control.
-
-    The CompoundPlugin also assumes that the `check_somethingable` always returns either
-    disctionary, or False values.
+    The `verify_somethingable` is called every time when the system requests `somethingable`
+    ability for a model as a whole. The return value of the `verify_somethingable` should be
+    a False value if the requested ability is not allowed to the requestor, or True, which
+    allows access.
 
     Definition of the callback should look like:
 
     ```
-    def check_somethingable(self, model, request)
+    def verify_somethingable(self, model, request, attributes={})
     ```
 
     The `model` determines a model, while `request` is passed to make a decision
-    about rights of the requestor.
+    about rights of the requestor. The additional attributes parameter contains the
+    set of new values of attributes for the model to be verified for the `somethingable` ability.
 
     The following standard abilities are applied such a way:
 
@@ -53,14 +58,19 @@ class AccessPluginBase(object):
 
 class ApplyAblePlugin(AccessPluginBase):
     '''
-    The ApplyAblePlugin determines instance-level access rights basing on abilities determined by later evaluated
-    queries passed to the constructor.
+    The ApplyAblePlugin determines instance-level access rules basing on abilities determined
+    by a dictionary passed to the constructor.
+
+    The dictionary contains abilities as keys, and functional rules as values. The rule is
+    evaluated against a QuerySet and a Request object containing a rule context.
+
+    The passed functions evaluate access rules for abilities
 
     The well known and used in the admin queries:
         - visible
         - changeable
         - deleteable
-    The superuser is having all abilities.
+    The superuser is always having all abilities.
 
     For example:
         ApplyAblePlugin(
@@ -84,22 +94,27 @@ class ApplyAblePlugin(AccessPluginBase):
         raise AttributeError(name)
 
 
-class CheckAblePlugin(AccessPluginBase):
+class VerifyAblePlugin(AccessPluginBase):
     '''
-    The CheckAblePlugin determines model-level access rights basing on abilities determined by later evaluated
-    check functions passed to the constructor.
+    The VerifyAblePlugin determines model-level preliminary access rules basing
+    on abilities determined by a dictionary passed to the constructor.
 
-    The most important:
-        - appendable
+    The dictionary contains abilities as keys, and functional rules as values. The rule is
+    evaluated against a Model, a Request object containing a rule context, and attributes
+    dictionary, which is filled by the new attributes values (if applicable).
+
+    The passed functions evaluate access rules for abilities
+
     The well known and used in the admin:
         - visible
+        - appendable
         - changeable
         - deleteable
     The superuser is having all abilities.
 
     For example:
-        CheckAblePlugin(
-            appendable=lambda model, request:{'user':request.user}
+        VerifyAblePlugin(
+            appendable=lambda model, request, attributes={}: (attributes.update({'user':request.user}), True)
         )
     '''
 
@@ -107,37 +122,44 @@ class CheckAblePlugin(AccessPluginBase):
         self._abilities = kw
 
     def __getattr__(self, name):
-        prefix = 'check_'
+        prefix = 'verify_'
         if name.startswith(prefix):
             ability = name[len(prefix):]
-            check_method = self._abilities.get(ability, lambda model, request: {})
+            verify_method = self._abilities.get(ability, lambda model, request, attributes={}: True)
 
-            def method(model, request):
-                d = check_method(model, request)
-                if d is False:
-                    if request.user.is_superuser:
-                        return {}
-                    return False
-                if not d:
-                    return {}
-                return d
+            def method(model, request, attributes={}):
+                if request.user.is_superuser:
+                    return True
+                return verify_method(model, request, attributes=attributes)
             return method
         raise AttributeError(name)
 
 
+class CheckAblePlugin(VerifyAblePlugin):
+    '''
+    The CheckAblePlugin is deprecated and should be replaced by the VerifyAblePlugin
+    '''
+
+    def __init__(self, **kw):
+        logger.warning("The `CheckAblePlugin` is deprecated, use `VerifyAblePlugin` instead")
+        logger.debug(">>> %s", ''.join(traceback.format_stack()))
+        abilities = dict((k, self._check_to_verify(v)) for k, v in kw.items())
+        super(CheckAblePlugin, self).__init__(**abilities)
+
+    def _check_to_verify(self, func):
+        def verify_check_method(model, request, attributes={}):
+            ret = func(model, request)
+            if isinstance(ret, dict):
+                attributes.update(ret)
+            return ret is not False
+        return verify_check_method
+
+
 class SimpleCheckPlugin(CheckAblePlugin):
     '''
-    The SimpleCheckPlugin determines model-level access rights basing on abilities determined by later evaluated
-    simple check functions passed to the constructor. The simple model-level access check function returns True
-    (instead of dictionary when the check is more sophisticated) when the access is allowed.
+    The SimpleCheckPlugin does the same as a VerifyAblePlugin, not passing attributes to the underlining rule.
 
-    The most important:
-        - appendable
-    The well known and used in the admin:
-        - visible
-        - changeable
-        - deleteable
-    The superuser is having all abilities.
+    It is deprecated.
 
     For example:
         SimpleCheckPlugin(
@@ -146,13 +168,15 @@ class SimpleCheckPlugin(CheckAblePlugin):
     '''
 
     def __init__(self, **kw):
-        def get_check_able(ability, cb):
-            def check(model, request):
-                if cb(model, request):
-                    return {}
-                return False
-            return check
-        CheckAblePlugin.__init__(self, **{k: get_check_able(k, kw[k]) for k in kw})
+        logger.warning("The `SimpleCheckPlugin` is deprecated, use `VerifyAblePlugin` instead")
+        logger.debug(">>> %s", ''.join(traceback.format_stack()))
+        abilities = dict((k, self._check_to_verify(v)) for k, v in kw.items())
+        super(CheckAblePlugin, self).__init__(**abilities)
+
+    def _check_to_verify(self, func):
+        def verify_check_method(model, request, attributes={}):
+            return func(model, request)
+        return verify_check_method
 
 
 class CompoundPlugin(AccessPluginBase):
@@ -162,12 +186,10 @@ class CompoundPlugin(AccessPluginBase):
     the plugins denies access to the object, the CompoundPlugin
     does the same.
 
-    For the model-wide access, the returned values of combined
-    plugins are united as dictionaries, if not a False.
 
     For example:
         CompoundPlugin(
-            CheckAblePlugin(appendable=lambda {}),
+            VerifyAblePlugin(appendable=lambda *av, **kw: True),
             PureVisiblePlugin(
                 Q(park__enterprise__in=lambda r:r.user.visible_enterprises())
             )
@@ -175,16 +197,6 @@ class CompoundPlugin(AccessPluginBase):
     '''
     def __init__(self, *plugins):
         self.plugins = plugins
-
-    def check_appendable(self, model, request):
-        ret = {}
-        for p in self.plugins:
-            if hasattr(p, 'check_appendable'):
-                r = p.check_appendable(model, request)
-                if r is False:
-                    return r
-                ret.update(r)
-        return ret
 
     def apply_able(self, ability, queryset, request):
         ret = queryset
@@ -194,15 +206,14 @@ class CompoundPlugin(AccessPluginBase):
                 ret = method(ret, request)
         return ret
 
-    def check_able(self, ability, model, request):
-        ret = {}
+    def verify_able(self, ability, model, request, attributes={}):
+        ret = True
         for p in self.plugins:
-            if hasattr(p, 'check_%s' % ability):
-                method = getattr(p, 'check_%s' % ability)
-                r = method(model, request)
-                if r is False:
-                    return False
-                ret.update(r)
+            if hasattr(p, 'verify_%s' % ability):
+                method = getattr(p, 'verify_%s' % ability)
+                ret = method(model, request, attributes=attributes) and ret
+                if not ret:
+                    break
         return ret
 
     def __getattr__(self, name):
@@ -215,22 +226,26 @@ class CompoundPlugin(AccessPluginBase):
                 return self.apply_able(ability, queryset, request)
             return method
 
-        prefix = 'check_'
+        prefix = 'verify_'
         if name.startswith(prefix):
             ability = name[len(prefix):]
 
+            def method(model, request, attributes={}):
+                return self.verify_able(ability, model, request, attributes=attributes)
+            return method
+
+        prefix = 'check_'
+        if name.startswith(prefix):
+            ability = name[len(prefix):]
+            logger.warning("The `%s` is deprecated, use `verify_%s` instead", name, ability)
+            logger.debug(">>> %s", ''.join(traceback.format_stack()))
+
             def method(model, request):
-                return self.check_able(ability, model, request)
+                attributes = {}
+                ret = self.verify_able(ability, model, request, attributes=attributes)
+                return attributes if ret else False
             return method
         raise AttributeError(name)
-
-
-class CheckApplyPlugin(CompoundPlugin):
-    def __init__(self, check={}, apply={}):
-        CompoundPlugin.__init__(self,
-            CheckAblePlugin(**check),
-            ApplyAblePlugin(**apply)
-        )
 
 
 class DjangoChangeAccessPlugin(AccessPluginBase):
@@ -251,17 +266,37 @@ class DjangoChangeAccessPlugin(AccessPluginBase):
             )
         )
 
+    def verify_appendable(self, model, request, attributes={}):
+        return self._has_a('add_%s' % model._meta.model_name, model, request)
+
+    def verify_changeable(self, model, request, attributes={}):
+        return self._has_a('change_%s' % model._meta.model_name, model, request)
+
+    def verify_deleteable(self, model, request, attributes={}):
+        return self._has_a('delete_%s' % model._meta.model_name, model, request)
+
+    def verify_visible(self, model, request, attributes={}):
+        return True
+
     def check_appendable(self, model, request):
-        return {} if self._has_a('add_%s' % model._meta.model_name, model, request) else False
+        logger.warning("The `check_appendable` is deprecated, use `verify_appendable` instead")
+        logger.debug(">>> %s", ''.join(traceback.format_stack()))
+        return {} if self.verify_appendable(model, request) else False
 
-    def check_changeable(self, model, request):
-        return {} if self._has_a('change_%s' % model._meta.model_name, model, request) else False
+    def check_changeable(self, model, request, attributes={}):
+        logger.warning("The `check_changeable` is deprecated, use `verify_changeable` instead")
+        logger.debug(">>> %s", ''.join(traceback.format_stack()))
+        return {} if self.verify_changeable(model, request) else False
 
-    def check_deleteable(self, model, request):
-        return {} if self._has_a('delete_%s' % model._meta.model_name, model, request) else False
+    def check_deleteable(self, model, request, attributes={}):
+        logger.warning("The `check_deleteable` is deprecated, use `verify_deleteable` instead")
+        logger.debug(">>> %s", ''.join(traceback.format_stack()))
+        return {} if self.verify_deleteable(model, request) else False
 
-    def check_visible(self, model, request):
-        return {}
+    def check_visible(self, model, request, attributes={}):
+        logger.warning("The `check_visible` is deprecated, use `verify_visible` instead")
+        logger.debug(">>> %s", ''.join(traceback.format_stack()))
+        return {} if self.verify_visible(model, request) else False
 
     def apply_visible(self, queryset, request):
         return queryset.all()
@@ -273,6 +308,7 @@ class DjangoChangeAccessPlugin(AccessPluginBase):
         return queryset.all() if self._has_a('delete_%s' % queryset.model._meta.model_name, queryset.model, request) else queryset.none()
 
     def __getattr__(self, name):
+        # Getting unusual rights
         prefix = 'apply_'
         if name.startswith(prefix):
             ability = name[len(prefix):]
@@ -281,12 +317,24 @@ class DjangoChangeAccessPlugin(AccessPluginBase):
                 return queryset.all() if self._has_a(ability, queryset.model, request) else queryset.none()
             return method
 
-        prefix = 'check_'
+        prefix = 'verify_'
         if name.startswith(prefix):
             ability = name[len(prefix):]
 
+            def method(model, request, attributes={}):
+                return self._has_a(ability, model, request)
+            return method
+
+        prefix = 'check_'
+        if name.startswith(prefix):
+            ability = name[len(prefix):]
+            logger.warning("The `%s` is deprecated, use `verify_%s` instead", name, ability)
+            logger.debug(">>> %s", ''.join(traceback.format_stack()))
+            verify = getattr(self, 'verify_%s' % ability)
+
             def method(model, request):
-                return {} if self._has_a(ability, model, request) else False
+                ret = verify(model, request)
+                return {} if ret else False
             return method
         raise AttributeError(name)
 
@@ -307,5 +355,5 @@ class DjangoAccessPlugin(DjangoChangeAccessPlugin):
             )
         )
 
-    def check_visible(self, model, request):
-        return {} if self._visible(model, request) else False
+    def verify_visible(self, model, request, attributes={}):
+        return self._visible(model, request)

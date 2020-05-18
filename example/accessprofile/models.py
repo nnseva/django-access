@@ -4,7 +4,7 @@ from django.db import models
 from django.db.models.query import Q
 from django.contrib.auth.models import User, Group, Permission
 
-from access.plugins import CompoundPlugin, ApplyAblePlugin, CheckAblePlugin, DjangoAccessPlugin
+from access.plugins import CompoundPlugin, ApplyAblePlugin, VerifyAblePlugin, DjangoAccessPlugin
 from access.managers import AccessManager
 
 from someapp.models import SomeObject, SomeChild
@@ -16,14 +16,13 @@ AccessManager.register_plugins({
             Q(group__in=request.user.groups.all())
         )),
     User:CompoundPlugin(
-        CheckAblePlugin(
-            appendable=lambda model, request: DjangoAccessPlugin().check_appendable(model, request),
-#            deleteable=lambda model, request: DjangoAccessPlugin().check_deleteable(model, request),
+        VerifyAblePlugin(
+            appendable=lambda model, request, attributes={}: DjangoAccessPlugin().verify_appendable(model, request, attributes=attributes),
         ),
         ApplyAblePlugin(
             changeable=lambda queryset, request:
                 queryset.filter(Q(id=request.user.id))
-                    if DjangoAccessPlugin().check_changeable(queryset.model, request) is False
+                    if DjangoAccessPlugin().verify_changeable(queryset.model, request) is False
                     else
                 (
                     queryset.all()
@@ -33,7 +32,7 @@ AccessManager.register_plugins({
                 ),
             deleteable=lambda queryset, request:
                 queryset.filter(Q(id=request.user.id))
-                    if DjangoAccessPlugin().check_deleteable(queryset.model, request) is False
+                    if DjangoAccessPlugin().verify_deleteable(queryset.model, request) is False
                     else
                 (
                     queryset.all()
@@ -45,8 +44,8 @@ AccessManager.register_plugins({
     ),
     Group:CompoundPlugin(
         DjangoAccessPlugin(),
-        CheckAblePlugin(
-            appendable=lambda model, request: {'user_set':[request.user]}
+        VerifyAblePlugin(
+            appendable=lambda model, request, attributes={}: (attributes.update({'user_set':[request.user]}), True)
         ),
         ApplyAblePlugin(
             visible=lambda queryset, request: queryset.filter(user=request.user),

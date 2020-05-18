@@ -1,3 +1,5 @@
+import django
+
 from django.contrib.admin import TabularInline, StackedInline, ModelAdmin
 from django.contrib.admin.options import csrf_protect_m
 
@@ -175,19 +177,21 @@ class AccessControlMixin(object):
         return ChangeList
 
     def has_add_permission(self, request, *av, **kw):
-        # TODO: for Django 3.0 the *av = [obj] where the obj is a parent object
-        r = AccessManager(self.model).appendable(request) is not False
-        return r
+        if hasattr(self, 'fk_name') and av:
+            parent = av[0]
+            return AccessManager(self.model).appendable(request, attributes={self.fk_name: parent})
+        return AccessManager(self.model).appendable(request)
 
     def has_change_permission(self, request, obj=None):
-        # in order to see the list and object views;
-        # look into get_readonly_fields to see the object-level restriction
-        r = self.has_view_permission(request, obj)
-        return r
+        if django.VERSION[0] < 2:
+            # in order to see the list and object views;
+            # look into get_readonly_fields to see the object-level restriction
+            return self.has_view_permission(request, obj=obj)
+        return self.has_basic_change_permission(request, obj=obj)
 
     def has_basic_change_permission(self, request, obj=None):
         manager = AccessManager(self.model)
-        if manager.check_changeable(self.model, request) is False:
+        if not manager.verify_changeable(self.model, request):
             return False
         if obj:
             return bool(manager.apply_changeable(obj.__class__.objects.filter(id=obj.id), request))
@@ -195,7 +199,7 @@ class AccessControlMixin(object):
 
     def has_delete_permission(self, request, obj=None):
         manager = AccessManager(self.model)
-        if manager.check_deleteable(self.model, request) is False:
+        if not manager.verify_deleteable(self.model, request):
             return False
         if obj:
             return bool(manager.apply_deleteable(obj.__class__.objects.filter(id=obj.id), request))
@@ -203,7 +207,7 @@ class AccessControlMixin(object):
 
     def has_view_permission(self, request, obj=None):
         manager = AccessManager(self.model)
-        if manager.check_visible(self.model, request) is False:
+        if not manager.verify_visible(self.model, request):
             return False
         if obj:
             return bool(manager.apply_visible(obj.__class__.objects.filter(id=obj.id), request))
@@ -213,7 +217,7 @@ class AccessControlMixin(object):
         if self.has_view_permission(request):
             return True
         for model in apps.get_app_config(self.model._meta.app_label).get_models():
-            if AccessManager(model).check_visible(model, request) is not False:
+            if AccessManager(model).verify_visible(model, request):
                 return True
         return False
 
@@ -402,7 +406,7 @@ class AccessControlMixin(object):
                 if not obj.__class__._meta.auto_created:
                     manager = AccessManager(obj.__class__)
                     # filter out forbidden items
-                    if manager.check_deleteable(obj.__class__, request) is False:
+                    if not manager.verify_deleteable(obj.__class__, request):
                         model_perms_needed.add(opts.verbose_name)
                     if not manager.apply_deleteable(obj.__class__._default_manager.filter(pk=obj.pk), request):
                         object_perms_needed.add(obj)
