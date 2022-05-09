@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/nnseva/django-access.svg?branch=master)](https://travis-ci.org/nnseva/django-access)
+[![Build Status](https://app.travis-ci.com/nnseva/django-access.svg?branch=master)](https://app.travis-ci.com/nnseva/django-access)
 
 # Django-Access
 
