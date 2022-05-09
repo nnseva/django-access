@@ -127,9 +127,10 @@ class AccessControlMixin(object):
             return RelatedFieldVisibleListFilter
 
     def get_list_filter(self, request):
-        if self.list_filter:
+        list_filter = super(AccessControlMixin, self).get_list_filter(request)
+        if list_filter:
             filters = []
-            for f in self.list_filter:
+            for f in list_filter:
                 if not isinstance(f, string_types):  # ignore custom list filters
                     filters.append(f)
                     continue
