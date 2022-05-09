@@ -45,7 +45,7 @@ import collections
 
 def list_union(l1, l2):
     l1_set = set(l1)
-    return list(l1) + [l for l in l2 if l not in l1_set]
+    return list(l1) + [item for item in l2 if item not in l1_set]
 
 
 def _get_field_rel_model(field):
@@ -61,7 +61,7 @@ class RelatedFieldVisibleListFilter(RelatedFieldListFilter):
     def field_choices(self, field, request, model_admin):
         model = _get_field_rel_model(field)
         if not model:
-            return [l for l in super(RelatedFieldVisibleListFilter, self).field_choices(field, request, model_admin)]
+            return [item for item in super(RelatedFieldVisibleListFilter, self).field_choices(field, request, model_admin)]
         else:
             q = model.objects.all()
             return [(o.pk, text_type(o)) for o in AccessManager(model).apply_visible(q, request).distinct()]
@@ -71,7 +71,7 @@ class RelatedFieldPresentListFilter(RelatedFieldListFilter):
     def field_choices(self, field, request, model_admin):
         model = _get_field_rel_model(field)
         if not model:
-            return [l for l in super(RelatedFieldPresentListFilter, self).field_choices(field, request, model_admin)]
+            return [item for item in super(RelatedFieldPresentListFilter, self).field_choices(field, request, model_admin)]
         else:
             q = model.objects.filter(
                 pk__in=model_admin.get_queryset(request).values(self.field_path)
