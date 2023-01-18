@@ -14,9 +14,9 @@ from django.contrib.admin.filters import RelatedFieldListFilter
 from django.contrib.admin.utils import flatten_fieldsets
 
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
 from django.utils.text import capfirst
 from django.utils.html import format_html
 from django.urls import NoReverseMatch, reverse
@@ -311,7 +311,7 @@ class AccessControlMixin(object):
             n = queryset.count()
             if n:
                 for obj in queryset:
-                    obj_display = force_text(obj)
+                    obj_display = force_str(obj)
                     self.log_deletion(request, obj, obj_display)
                 queryset.delete()
                 self.message_user(request, _("Successfully deleted %(count)d %(items)s.") % {
@@ -323,12 +323,12 @@ class AccessControlMixin(object):
         sz = queryset.count()
         if sz == 1:
             objects_name = _('%(verbose_name)s "%(object)s"') % {
-                'verbose_name': force_text(opts.verbose_name),
+                'verbose_name': force_str(opts.verbose_name),
                 'object': queryset[0]
             }
         else:
             objects_name = _('%(count)s %(verbose_name_plural)s') % {
-                'verbose_name_plural': force_text(opts.verbose_name_plural),
+                'verbose_name_plural': force_str(opts.verbose_name_plural),
                 'count': sz
             }
 
@@ -384,7 +384,7 @@ class AccessControlMixin(object):
             opts = obj._meta
 
             no_edit_link = '%s: %s' % (capfirst(opts.verbose_name),
-                                   force_text(obj))
+                                   force_str(obj))
 
             # Trying to get admin change URL
             admin_url = None
