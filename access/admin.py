@@ -4,7 +4,6 @@ from django.contrib.admin.options import csrf_protect_m
 from django.contrib.admin.utils import get_fields_from_path
 from django.contrib.admin.utils import model_ngettext, NestedObjects, quote
 from django.contrib.admin import helpers
-from django.contrib.admin.views.main import ChangeList
 
 from django.contrib import messages
 
@@ -13,10 +12,16 @@ from django.template.response import TemplateResponse
 from django.contrib.admin.filters import RelatedFieldListFilter
 from django.contrib.admin.utils import flatten_fieldsets
 
+try:
+    from django.utils.translation import ugettext_lazy as _
+except ImportError:
+    from django.utils.translation import gettext_lazy as _
 
-from django.utils.translation import ugettext_lazy as _
+try:
+    from django.utils.encoding import force_text
+except ImportError:
+    from django.utils.encoding import force_str as force_text
 
-from django.utils.encoding import force_text
 from django.utils.text import capfirst
 from django.utils.html import format_html
 from django.urls import NoReverseMatch, reverse
@@ -79,14 +84,14 @@ class RelatedFieldPresentListFilter(RelatedFieldListFilter):
             return [(o.pk, text_type(o)) for o in q]
 
 
-class NoListEditableChangeList(ChangeList):
+class NoListEditableChangeListMixin:
     def __init__(self,
         request, model, list_display,
         list_display_links, list_filter, date_hierarchy,
         search_fields, list_select_related, list_per_page,
         list_max_show_all, list_editable, *args
     ):
-        super(NoListEditableChangeList, self).__init__(
+        super(NoListEditableChangeListMixin, self).__init__(
             request, model, list_display,
             list_display_links, list_filter, date_hierarchy,
             search_fields, list_select_related, list_per_page,
@@ -171,8 +176,10 @@ class AccessControlMixin(object):
         return super(AccessControlMixin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
     def get_changelist(self, request, **kwargs):
+        ChangeList = super(AccessControlMixin, self).get_changelist(request, **kwargs)
         if not self.has_basic_change_permission(request):
-            return NoListEditableChangeList
+            class ChangeList(NoListEditableChangeListMixin, ChangeList):
+                pass
         return ChangeList
 
     def has_add_permission(self, request, *av, **kw):

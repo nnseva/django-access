@@ -5,7 +5,10 @@ from django.db.models import Model
 from django.db.models.query import Q
 from django.contrib.auth.models import Group
 
-from django.utils.translation import ugettext_lazy as _
+try:
+    from django.utils.translation import ugettext_lazy as _
+except ImportError:
+    from django.utils.translation import gettext_lazy as _
 
 from access.plugins import CompoundPlugin, ApplyAblePlugin, CheckAblePlugin, DjangoAccessPlugin
 from access.managers import AccessManager
