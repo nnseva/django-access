@@ -1,4 +1,4 @@
-[![Build Status](https://app.travis-ci.com/nnseva/django-access.svg?branch=master)](https://app.travis-ci.com/nnseva/django-access)
+[![Tests](https://github.com/nnseva/django-access/actions/workflows/test.yml/badge.svg)](https://github.com/nnseva/django-access/actions/workflows/test.yml)
 
 # Django-Access
 
