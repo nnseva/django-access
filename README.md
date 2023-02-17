@@ -117,58 +117,7 @@ admin.site.register(models.Group,AccessGroupAdmin)
 ```
 
 Sometimes you need to tune external admin classes to restrict access to some fields etc. You always can do it using
-such a technique. For example:
-
-```python
-from django.contrib import admin
-from django.contrib.auth import models
-from django.contrib.auth.admin import UserAdmin, GroupAdmin
-from access.admin import *
-
-class AccessUserAdmin(AccessControlMixin,UserAdmin):
-    list_editable = ['email']
-
-    def get_list_display(self, request):
-        fields = super(AccessUserAdmin, self).get_list_display(request) or []
-        if request.user.is_superuser:
-            return fields
-        return list(set(fields).difference(['password','email']))
-
-    def _fieldsets_exclude(self,fieldsets,exclude):
-        ret = []
-        for nm,params in fieldsets:
-            if not 'fields' in params:
-                ret.append((nm,params))
-                continue
-            fields = []
-            for f in params['fields']:
-                if not f in exclude:
-                    fields.append(f)
-            pars = {}
-            pars.update(params)
-            pars['fields'] = fields
-            ret.append((nm,pars))
-        return ret
-
-    def get_fieldsets(self, request, obj=None):
-        fieldsets = list(super(AccessUserAdmin, self).get_fieldsets(request, obj)) or []
-        if request.user.is_superuser:
-            return fieldsets
-        if not obj:
-            return fieldsets
-        if obj.pk != request.user.pk:
-            return self._fieldsets_exclude(fieldsets,['password', 'email'])
-        return self._fieldsets_exclude(fieldsets,['is_superuser'])
-
-class AccessGroupAdmin(AccessControlMixin,GroupAdmin):
-    pass
-
-# Register your models here.
-admin.site.unregister(models.User)
-admin.site.register(models.User,AccessUserAdmin)
-admin.site.unregister(models.Group)
-admin.site.register(models.Group,AccessGroupAdmin)
-```
+such a technique.
 
 ## Using the *Django-Access* package for your purposes
 
@@ -214,6 +163,96 @@ Don't forget to check the return value of the `check_` method against False valu
             ...
 ```
 
+To check access to the particular instances or their groups determined
+by the filtering expression, the simplified code returning querysets may be used instead, f.e.:
+
+```python
+...
+from access.managers import AccessManager
+...
+
+...
+    def has_delete_permission(self, request, obj):
+        manager = AccessManager(self.model)
+        return manager.deleteable(request).filter(id=obj.id)
+
+    def has_view_permission(self, request, obj):
+        manager = AccessManager(self.model)
+        return manager.visible(request).filter(id=obj.id)
+```
+
+### Permissions which can be checked by the manager
+
+The manager provides a set of methods controlling access to the model class as a whole, as well as to separate instances of the model.
+
+All manager methods controlling the access are having names started from `check_` and `apply_` prefixes.
+
+A method whose name is starting from the `check_` prefix controls access to the model as a whole,
+while method whose name is starting from the `apply_` prefix controls access to separate instances of the model.
+
+The second part of the access control method name defines a particular type of the access.
+The programmer customizing the access control is free to define any types of the access,
+but the Model Admin classes of the package itself use the only following access types:
+
+- `appendable`
+- `changeable`
+- `deleteable`
+- `visible`
+
+The `appendable` access type is used only with `check_` prefix, while others - with both prefixes.
+
+
+### Check access to the model as a whole
+
+Manager method controlling access to the whole model is named using a `check_` prefix.
+The second part of the name determines an access type to be checked.
+
+Parameters of the method are the `model` - a Django Model class to be checked,
+and `request` - a Django Request object determining an access context to be controlled.
+
+The return value of the `check_` access control method can be of two kinds.
+The False value forbids access, while a dictionary (even empty) means access allowed.
+
+The non-empty dictionary returned from the `check_appendable` method of the manager will
+be used to fill the initial values for fields when constructing a new instance of the model.
+The dictionary keys will be correspondent to instance property names.
+When the instance property refers to the instance set (reverse part of the foreign key) and value is iterable,
+values returned from the iterable will be `add`-ed to the property.
+
+### Check access to model instances
+
+Manager method controlling access to separate model instances is named using an `apply_` prefix.
+The second part of the name determines an access type to be checked.
+
+Parameters of the method are the `queryset` - a Django `QuerySet` object to be filtered,
+and `request` - a Django Request object determining an access context to be controlled.
+
+The return value of the `apply_` access control method is a `QuerySet` filtered
+to only allowed instances accordingly to the granted access.
+
+### Standard set of the manager methods
+
+The manager provides the following standard set of methods to check access:
+
+- `check_appendable(model, request)`
+- `check_changeable(model, request)`
+- `check_deleteable(model, request)`
+- `check_visible(model, request)`
+- `apply_changeable(queryset, request)`
+- `apply_deleteable(queryset, request)`
+- `apply_visible(queryset, request)`
+
+### Check permissions for the custom access type
+
+The programmer can declare any new access type using access plugins (see below). The manager allows to check these types
+using the same name convention. For example, if some plugin declares `pushable` access type on the instance level,
+you can always call `manager.apply_pushable(queryset, request)` method to get the queryset returning only `pushable` instances.
+For those models where this access type is not determined, the method just returns the original queryset.
+
+You can call `apply_` or `check_` method of the manager for the access type even if it was not yet declared. The
+manager just returns values meaning no restrictions in this case. It allows to create access
+control rules and develop other types of your project independently.
+
 ## Customising access rules using plugins
 
 When the admin is ready to use custom access rules, you can define your own access rules using predefined or your own plugins.
@@ -224,7 +263,7 @@ The *Django-Access* package uses a global access control plugin registry. Every 
 
 You can register plugins for any model classes, either standard, or from third-party packages, or your own. *Note* that you can register the only one plugin instance for the model. Registering another plugin instance for the same model unregisters the previous one. In order to combine several plugins, you can use a provided *CompoundPlugin* as described below.
 
-You can register a plugin for any `Model` class, even a *abstract* one. This `Model` and *all its successors* (except those for which the own plugin is registered) will be controlled by this plugin instance.
+You can register a plugin for any `Model` class, even an *abstract* one. This `Model` and *all its successors* (except those for which the own plugin is registered) will be controlled by this plugin instance.
 
 We recommend register plugins in the models.py module of the separate django application without its own models. Put this application after the all others in the `INSTALLED_APPS` section of the settings module.
 
@@ -350,7 +389,7 @@ Parameters of the method are the `queryset` - a Django `QuerySet` object to be f
 
 The return value of the `apply_` access control method is a `QuerySet` filtered to only allowed instances accordingly to the granted access.
 
-### Base and extended access types
+### Base and custom access types
 
 The Model Admin classes defined in the *Django-Access* package control the only four base access types:
 
@@ -483,6 +522,41 @@ The package has been developed and tested against:
     - Django v.2.1
     - Django v.2.2
     - Django v.3.0
+- Python 3.7
+    - Django v.2.0
+    - Django v.2.1
+    - Django v.2.2
+    - Django v.3.0
+- Python 3.8
+    - Django v.2.0
+    - Django v.2.1
+    - Django v.2.2
+    - Django v.3.0
+    - Django v.3.1
+    - Django v.3.2
+    - Django v.4.0
+    - Django v.4.1
+    - Django v.4.2
+- Python 3.9
+    - Django v.2.0
+    - Django v.2.1
+    - Django v.2.2
+    - Django v.3.0
+    - Django v.3.1
+    - Django v.3.2
+    - Django v.4.0
+    - Django v.4.1
+    - Django v.4.2
+- Python 3.10
+    - Django v.3.2
+    - Django v.4.0
+    - Django v.4.1
+    - Django v.4.2
+- Python 3.11
+    - Django v.3.2
+    - Django v.4.0
+    - Django v.4.1
+    - Django v.4.2
 
 It also can be compatible with other versions and combinations, but not obviously
 
@@ -500,6 +574,7 @@ The example is oriented to the following access scheme:
 - The other User record is accessible for reading except e-mail and password
 - The other User record is accessible for writing (except `is_superuser` flag and timestamp fields) and deleting if it is not a superuser and Django permissions granted
 - The own User record is accessible for writing (except `is_superuser` flag and timestamp fields)
+
 - Groups and Permissions are visible only for those Users who have relations to them
 - SomeObject is visible for viewers, and changeable for editors, defined by the related `Group` instances
 
