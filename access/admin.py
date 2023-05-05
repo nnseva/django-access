@@ -45,7 +45,8 @@ from django.apps import apps
 
 from access.managers import AccessManager
 
-import collections
+from collections import abc as collections
+
 
 
 def list_union(l1, l2):
