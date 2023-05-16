@@ -45,7 +45,10 @@ from django.apps import apps
 
 from access.managers import AccessManager
 
-import collections
+try:
+    from collections import Iterable
+except ImportError:
+    from collections.abs import Iterable
 
 
 def list_union(l1, l2):
@@ -253,7 +256,7 @@ class AccessControlMixin(object):
                 if fieldname.endswith("_set"):
                     fieldname = fieldname[:-4]
                 field = form.instance._meta.get_field(fieldname)
-                if isinstance(v, collections.Iterable) and not isinstance(v, string_types) and isinstance(field, ForeignObjectRel):
+                if isinstance(v, Iterable) and not isinstance(v, string_types) and isinstance(field, ForeignObjectRel):
                     continue
                 if getattr(obj, k) is None:
                     setattr(obj, k, v)
@@ -271,7 +274,7 @@ class AccessControlMixin(object):
                 if fieldname.endswith("_set"):
                     fieldname = fieldname[:-4]
                 field = form.instance._meta.get_field(fieldname)
-                if isinstance(v, collections.Iterable) and not isinstance(v, string_types) and isinstance(field, ForeignObjectRel):
+                if isinstance(v, Iterable) and not isinstance(v, string_types) and isinstance(field, ForeignObjectRel):
                     fld = getattr(form.instance, k)
                     for i in v:
                         fld.add(i)
