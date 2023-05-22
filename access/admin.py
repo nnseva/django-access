@@ -48,7 +48,7 @@ from access.managers import AccessManager
 try:
     from collections import Iterable
 except ImportError:
-    from collections.abs import Iterable
+    from collections.abc import Iterable
 
 
 def list_union(l1, l2):
