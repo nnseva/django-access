@@ -206,7 +206,6 @@ class CompoundPlugin(AccessPluginBase):
         return ret
 
     def __getattr__(self, name):
-        method = None
         prefix = 'apply_'
         if name.startswith(prefix):
             ability = name[len(prefix):]

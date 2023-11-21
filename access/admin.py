@@ -201,7 +201,7 @@ class AccessControlMixin(object):
         if manager.check_changeable(self.model, request) is False:
             return False
         if obj:
-            return bool(manager.apply_changeable(obj.__class__.objects.filter(id=obj.id), request))
+            return self._check_request_object_ability(obj, 'changeable', request)
         return True
 
     def has_delete_permission(self, request, obj=None):
@@ -209,7 +209,7 @@ class AccessControlMixin(object):
         if manager.check_deleteable(self.model, request) is False:
             return False
         if obj:
-            return bool(manager.apply_deleteable(obj.__class__.objects.filter(id=obj.id), request))
+            return self._check_request_object_ability(obj, 'deleteable', request)
         return True
 
     def has_view_permission(self, request, obj=None):
@@ -217,7 +217,7 @@ class AccessControlMixin(object):
         if manager.check_visible(self.model, request) is False:
             return False
         if obj:
-            return bool(manager.apply_visible(obj.__class__.objects.filter(id=obj.id), request))
+            return self._check_request_object_ability(obj, 'visible', request)
         return True
 
     def has_module_permission(self, request):
@@ -476,6 +476,28 @@ class AccessControlMixin(object):
         kw['form'] = CheckDeleteRightsForm
 
         return super(AccessControlMixin, self).get_formset(request, obj=obj, **kw)
+
+    def _get_request_ability_cache(self, request):
+        """
+        Returns the request ability cache to avoid twice requests
+        for individual model instance ability
+        """
+        if not hasattr(request, '--request-ability-cache'):
+            setattr(request, '--request-ability-cache', {})
+        return getattr(request, '--request-ability-cache')
+
+    def _check_request_object_ability(self, obj, ability, request):
+        """
+        Checks and caches individual model instance ability
+        """
+        model_name = '%s.%s' % (obj._meta.app_label, obj._meta.model_name)
+        pk = obj.pk
+        perm = self._get_request_ability_cache(request).get((model_name, pk, ability), None)
+        if perm is None:
+            manager = AccessManager(obj.__class__)
+            perm = bool(manager.apply_able(ability, obj.__class__.objects.filter(id=obj.id), request).exists())
+            self._get_request_ability_cache(request)[(model_name, pk, ability)] = perm
+        return perm
 
 
 class AccessModelAdmin(AccessControlMixin, ModelAdmin):

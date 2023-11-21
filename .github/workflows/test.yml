@@ -16,8 +16,6 @@ jobs:
       max-parallel: 2
       matrix:
         include:
-          - python-version: "2.7"
-            toxenv: py27-django{1.10,1.11}
           - python-version: "3.6"
             toxenv: py36-django{1.10,1.11,2.0,2.1,2.2,3.0}
           - python-version: "3.7"
