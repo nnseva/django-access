@@ -78,7 +78,7 @@ class ApplyAblePlugin(AccessPluginBase):
 
             def method(queryset, request):
                 if request.user.is_superuser:
-                    return queryset.all()
+                    return queryset
                 return apply_method(queryset, request)
             return method
         raise AttributeError(name)
